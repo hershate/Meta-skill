@@ -49,15 +49,25 @@
 
 ---
 
+## 各技能可用状态
+
+| 技能 | 版本 | 状态 | 说明 |
+|------|------|------|------|
+| **skill-for-skills** | v1.0.0 | ✅ **可用** | 完全可用，后续仍会持续优化 |
+| **prompt-optimizer** | v3.0.0 | ✅ **可用** | 完全可用 |
+| **project-to-skill** | v2.1.0 | 🚧 **测试中** | 仍在测试阶段，**实际不可用** |
+| **skill-chain-planner** | v1.3.0 | ⚠️ **已知问题** | 与 skill-chain-executor 的协作问题尚未解决 |
+| **skill-chain-executor** | v1.0.0 | ⚠️ **已知问题** | 与 skill-chain-planner 的协作问题尚未解决 |
+
 ## 五个技能速览
 
 | 技能 | 版本 | 一句话 | 运行模式 | 触发词示例 |
 |------|------|--------|---------|-----------|
-| **skill-for-skills** | v1.0.0 | 根据自然语言描述自动生成符合规范的 SKILL.md | 内联 | "编写skill" "创建skill" "升级skill" |
-| **project-to-skill** | v2.1.0 | 分析现有代码库，从 6 维度评估适用性后提取架构并生成 Skill | `context: fork` 隔离 | "项目转skill" "codebase to skill" |
-| **skill-chain-planner** | v1.3.0 | 用 5W1H+C 框架将复杂任务拆分为多 Skill 链，定义接口契约和风险登记 | `context: fork` + `agent: Plan` | "任务分解" "skill链规划" |
-| **skill-chain-executor** | v1.0.0 | 读取 planner 的规划输出，按优先级和依赖顺序委托 skill-for-skills 逐个创建 | 内联 | "执行skill链" "批量创建skill" |
-| **prompt-optimizer** | v3.0.0 | 12 维度定量评分（0-5）+ 14 种反模式检测 + 回归验证的工业级提示词优化 | 内联 | "优化提示词" "prompt engineering" |
+| **skill-for-skills** | v1.0.0 | ✅ 根据自然语言描述自动生成符合规范的 SKILL.md（完全可用，后续仍会持续优化） | 内联 | "编写skill" "创建skill" "升级skill" |
+| **project-to-skill** | v2.1.0 | 🚧 分析现有代码库，从 6 维度评估适用性后提取架构并生成 Skill（测试中，不可用） | `context: fork` 隔离 | "项目转skill" "codebase to skill" |
+| **skill-chain-planner** | v1.3.0 | ⚠️ 用 5W1H+C 框架将复杂任务拆分为多 Skill 链（与 executor 协作问题未解决） | `context: fork` + `agent: Plan` | "任务分解" "skill链规划" |
+| **skill-chain-executor** | v1.0.0 | ⚠️ 读取 planner 的规划输出，委托 skill-for-skills 逐个创建（与 planner 协作问题未解决） | 内联 | "执行skill链" "批量创建skill" |
+| **prompt-optimizer** | v3.0.0 | ✅ 12 维度定量评分（0-5）+ 14 种反模式检测 + 回归验证的工业级提示词优化 | 内联 | "优化提示词" "prompt engineering" |
 
 ---
 
@@ -73,13 +83,13 @@
            ┌────────────────────┼────────────────────┐
            ▼                    ▼                    │
   ┌──────────────────┐  ┌──────────────────┐         │
-  │ project-to-skill  │  │ chain-executor    │         │
-  │                   │  │                   │         │
-  │ 从代码库逆向提取   │  │ 按规划批量编排     │         │
-  │ 自行生成 Skill    │  │ 委托 skill-for-    │         │
-  │ (不委托 s-f-s)    │  │ skills 逐个生成    │         │
-  └──────────────────┘  └────────┬──────────┘         │
-                                 │ 读取规划输出        │
+  │ project-to-skill  │  │ chain-executor    │       │
+  │                   │  │                   │       │
+  │ 从代码库逆向提取   │  │ 按规划批量编排     │      │
+  │ 自行生成 Skill    │  │ 委托 skill-for-    │       │
+  │ (不委托 s-f-s)    │  │ skills 逐个生成    │       │
+  └──────────────────┘  └────────┬──────────┘        │
+                                 │ 读取规划输出      │
                           ┌──────▼──────────┐         │
                           │ chain-planner    │         │
                           │                  │         │
@@ -99,17 +109,17 @@
 ### 推荐工作流
 
 ```
-创建单个 Skill：
+创建单个 Skill（✅ 可用）：
   用户需求 ──→ skill-for-skills ──→ SKILL.md + README.md
 
-代码库转 Skill：
+提示词优化（✅ 可用）：
+  原始提示词 ──→ prompt-optimizer ──→ 优化后提示词 + 质量对比报告
+
+代码库转 Skill（🚧 测试中，暂不可用）：
   代码库 ──→ project-to-skill ──→ SKILL.md + README.md
 
-复杂多 Skill 任务：
+复杂多 Skill 任务（⚠️ planner 与 executor 协作问题未解决）：
   chain-planner ──→ chain-executor ──→ skill-for-skills（× N）
-
-提示词优化（独立使用）：
-  原始提示词 ──→ prompt-optimizer ──→ 优化后提示词 + 质量对比报告
 ```
 
 ---
@@ -186,7 +196,19 @@ cp -r skill-for-skills ~/.claude/skills/
 
 ## 体系现状与已知局限
 
-这是一个以「Skill 的诞生」为核心的体系——覆盖了从需求到可工作 SKILL.md 的完整链路，但以下领域尚待补全：
+### 当前可用
+
+目前只有两个技能可在生产环境中使用：
+
+- **skill-for-skills** — 完全可用，从自然语言需求生成 Skill 的链路已跑通，后续仍会持续优化
+- **prompt-optimizer** — 完全可用，12 维分析框架和回归验证均正常工作
+
+### 暂不可用
+
+- **project-to-skill** — 仍在测试阶段，代码库逆向分析到 Skill 生成的链路尚未稳定，**实际不可用**
+- **skill-chain-planner + skill-chain-executor** — 两者的协作机制存在已知问题：planner 输出的规划格式与 executor 期望的输入格式之间存在不匹配，链式批量创建尚不能端到端运行
+
+### 长期待补全
 
 - **自动化测试**：缺少 Skill 的运行时验证工具（输入 → 执行 → 输出 → 校验）
 - **分发与注册管理**：目前需手动复制目录到 `.claude/skills/`
