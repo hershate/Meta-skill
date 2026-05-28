@@ -1,0 +1,239 @@
+# Reasonix Code Skills — 元技能集合
+
+一套用于**创建、编排、优化和管理** Claude Code / Reasonix Code 技能（Skill）的元技能（Meta-Skill）工具链。
+
+---
+
+## 什么是「元技能」？
+
+普通 Skill 教 AI 做某件事（搜论文、写报告、审代码）。元技能本身也是 Skill，但它的任务是**生成别的 Skill**——分析需求、逆向代码库、拆解复杂任务，最终产出可复用的 `SKILL.md`。
+
+---
+
+## 项目结构
+
+```
+.
+├── skill-for-skills/          # 核心引擎 — 根据需求描述生成/升级 Skill
+│   ├── SKILL.md               # 元技能主文件（三条路径：CREATE / UPGRADE / UPDATE_SUM）
+│   ├── sum.md                 # Skill 编写规范参考手册（被所有生成流程引用）
+│   └── README.md
+│
+├── project-to-skill/          # 逆向分析 — 从现有代码库提取架构并转化为 Skill
+│   ├── SKILL.md               # 技能主文件（v2.1.0，含过程式忠实保证）
+│   ├── references/
+│   │   └── step-precision-rules.md   # 步骤精度参考手册（动词/名词速查、验证单）
+│   ├── scripts/               # 可执行脚本（预留）
+│   ├── templates/             # 模板文件（预留）
+│   └── README.md
+│
+├── skill-chain-planner/       # 任务分解 — 将复杂任务规划为多 Skill 协作链
+│   ├── SKILL.md               # 技能主文件（v1.3.0，含三层接口契约 + 风险分析）
+│   ├── references/            # 补充文档（预留）
+│   ├── scripts/               # 可执行脚本（预留）
+│   ├── templates/             # 模板文件（预留）
+│   └── README.md
+│
+├── skill-chain-executor/      # 链执行器 — 按规划批量调用 skill-for-skills 创建子 Skill
+│   ├── SKILL.md               # 技能主文件（v1.0.0）
+│   └── README.md
+│
+├── prompt-optimizer/          # 提示词优化 — 12 维定量分析 + 14 种反模式检测
+│   ├── SKILL.md               # 技能主文件（v3.0.0）
+│   ├── references/            # 补充文档（预留）
+│   └── README.md
+│
+├── LICENSE                    # Apache License 2.0
+└── README.md                  # 本文件
+```
+
+---
+
+## 五个技能速览
+
+| 技能 | 版本 | 一句话 | 运行模式 | 触发词示例 |
+|------|------|--------|---------|-----------|
+| **skill-for-skills** | v1.0.0 | 根据自然语言描述自动生成符合规范的 SKILL.md | 内联 | "编写skill" "创建skill" "升级skill" |
+| **project-to-skill** | v2.1.0 | 分析现有代码库，从 6 维度评估适用性后提取架构并生成 Skill | `context: fork` 隔离 | "项目转skill" "codebase to skill" |
+| **skill-chain-planner** | v1.3.0 | 用 5W1H+C 框架将复杂任务拆分为多 Skill 链，定义接口契约和风险登记 | `context: fork` + `agent: Plan` | "任务分解" "skill链规划" |
+| **skill-chain-executor** | v1.0.0 | 读取 planner 的规划输出，按优先级和依赖顺序委托 skill-for-skills 逐个创建 | 内联 | "执行skill链" "批量创建skill" |
+| **prompt-optimizer** | v3.0.0 | 12 维度定量评分（0-5）+ 14 种反模式检测 + 回归验证的工业级提示词优化 | 内联 | "优化提示词" "prompt engineering" |
+
+---
+
+## 技能之间的关系
+
+```
+                         ┌──────────────────────┐
+                         │   skill-for-skills    │  ← 核心生成引擎
+                         │  (CREATE / UPGRADE /   │     所有 "生成 Skill" 的路径
+                         │   UPDATE_SUM)          │     都直接或间接通向这里
+                         └──────┬───────────────┘
+                                │ 被委托调用
+           ┌────────────────────┼────────────────────┐
+           ▼                    ▼                    │
+  ┌──────────────────┐  ┌──────────────────┐         │
+  │ project-to-skill  │  │ chain-executor    │         │
+  │                   │  │                   │         │
+  │ 从代码库逆向提取   │  │ 按规划批量编排     │         │
+  │ 自行生成 Skill    │  │ 委托 skill-for-    │         │
+  │ (不委托 s-f-s)    │  │ skills 逐个生成    │         │
+  └──────────────────┘  └────────┬──────────┘         │
+                                 │ 读取规划输出        │
+                          ┌──────▼──────────┐         │
+                          │ chain-planner    │         │
+                          │                  │         │
+                          │ 复杂任务 → 多 Skill│         │
+                          │ 链规划（只输出    │         │
+                          │ 规划文档，不生成  │         │
+                          │ Skill）          │         │
+                          └─────────────────┘         │
+                                                      │
+  ┌──────────────────┐                                │
+  │ prompt-optimizer  │  ← 独立工具                    │
+  │                   │    不依赖其他技能               │
+  │ 提示词质量优化    │    可应用于任意 prompt          │
+  └──────────────────┘                                │
+```
+
+### 推荐工作流
+
+```
+创建单个 Skill：
+  用户需求 ──→ skill-for-skills ──→ SKILL.md + README.md
+
+代码库转 Skill：
+  代码库 ──→ project-to-skill ──→ SKILL.md + README.md
+
+复杂多 Skill 任务：
+  chain-planner ──→ chain-executor ──→ skill-for-skills（× N）
+
+提示词优化（独立使用）：
+  原始提示词 ──→ prompt-optimizer ──→ 优化后提示词 + 质量对比报告
+```
+
+---
+
+## 核心技术特性
+
+### 渐进式加载
+
+所有生成的 Skill 遵循三层渐进式加载模型：
+
+| 层级 | 内容 | Token 预算 | 加载时机 |
+|------|------|-----------|---------|
+| L1 — 元数据 | `name` + `description` | ~100 tokens | Agent 启动时发现 |
+| L2 — 指令 | `SKILL.md` 正文 | < 5000 tokens | 技能被激活时加载 |
+| L3 — 资源 | `references/` `scripts/` 等 | 按需 | 运行时按需拉取 |
+
+### 精度保障（project-to-skill v2.1.0）
+
+- **过程式忠实保证**：循环边界、重试次数、退避公式、错误恢复路径严格按源码记录，不简化
+- **L1+L2+L3 三层提取**：功能摘要 + 步骤参数 + 异常路径逐层保留
+- **精度交叉验证**：生成后对照源代码执行参数完整性、分支覆盖、幻觉检测三轮验证
+
+### 定量闭环（prompt-optimizer v3.0.0）
+
+- **12 维评分**：每维度 0-5 分，含 0/3/5 分锚点示例
+- **14 种反模式**：万能提示词、冲突约束、幽灵输出、提示词注入漏洞等
+- **回归验证**：优化后重新通过 12 维度分析，检测是否引入新问题
+
+### 三层接口契约（skill-chain-planner v1.3.0）
+
+- 每个子 Skill 必须定义输入/输出/错误契约
+- 隐式耦合检测（文件级、环境级、时序级、语义级）
+- 静默降级识别（内容层面、边界层面、数据类型层面）
+
+---
+
+## 安装与使用
+
+### 安装
+
+将需要的技能目录复制到项目的 `.claude/skills/` (Claude Code) 或 `.reasonix/skills/` (Reasonix Code) 下：
+
+```bash
+# 以 skill-for-skills 为例
+cp -r skill-for-skills /path/to/your/project/.claude/skills/
+
+# 或安装到用户级（所有项目可用）
+cp -r skill-for-skills ~/.claude/skills/
+```
+
+重启 Claude Code / Reasonix Code 后即可通过斜杠命令或触发关键词激活。
+
+### 使用示例
+
+```bash
+# 创建一个新 Skill
+/skill-for-skills 帮我写一个能从 arXiv 搜索论文并生成摘要的 skill
+
+# 从现有代码库生成 Skill
+/project-to-skill ../my-tool
+
+# 拆分复杂任务
+/skill-chain-planner 我需要一个完整的实验报告自动生成流水线：
+  输入 docx/pdf → 转 markdown → 格式化 → 内容总结 → 生成报告
+
+# 执行规划
+/chain-executor skill-chain-planner/plans/lab-report/
+
+# 优化提示词
+/prompt-optimizer Python代码审查 | 检查这段代码有什么问题
+```
+
+---
+
+## 体系现状与已知局限
+
+这是一个以「Skill 的诞生」为核心的体系——覆盖了从需求到可工作 SKILL.md 的完整链路，但以下领域尚待补全：
+
+- **自动化测试**：缺少 Skill 的运行时验证工具（输入 → 执行 → 输出 → 校验）
+- **分发与注册管理**：目前需手动复制目录到 `.claude/skills/`
+- **运行监控**：无 Skill 使用频率、成功率、失败原因统计
+- **持续维护**：无外部 API 变更检测、依赖版本过期提醒
+- **冲突检测**：无 Skill 间的功能去重与合并分析
+
+---
+
+## 许可证
+
+本项目基于 **Apache License 2.0** 开源。
+
+```
+Copyright 2025 Reasonix Code Skills Contributors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+```
+
+完整的许可证文本见仓库根目录下的 [LICENSE](./LICENSE) 文件。
+
+---
+
+## 免责声明
+
+1. **按"原样"提供，不提供任何形式的保证。** 本项目中的技能（Skills）按"现状"（AS IS）提供，不附带任何明示或默示的保证，包括但不限于对适销性、特定用途适用性、或不侵权的默示保证。
+
+2. **使用风险由您自行承担。** 在任何情况下，项目贡献者均不对因使用本项目而产生的任何直接、间接、附带、特殊、惩罚性或后果性损害承担责任，无论该等损害是否基于合同、侵权（包括过失）、严格责任或其他法律理论。
+
+3. **AI 生成内容的验证责任。** 本项目中的元技能会**自动生成**下游技能（SKILL.md 文件）。这些生成物由 AI 模型自动产出，可能包含错误、过时信息或不准确的描述。用户有责任在使用前审查和验证任何自动生成的内容，特别是在涉及：
+   - 生产环境操作
+   - 破坏性命令（删除、覆盖、部署）
+   - 外部 API 调用
+   - 敏感数据处理
+
+4. **第三方依赖。** 本项目生成的下游技能可能引用第三方 API、库或服务。项目贡献者不对这些第三方服务的可用性、安全性或合规性负责。
+
+5. **不构成专业建议。** 本项目仅为自动化工具集合，不构成任何形式的专业建议（法律、医疗、金融、安全等）。
+
+6. **贡献者免责。** "Reasonix Code Skills Contributors" 包括所有向本仓库提交代码、文档或其他内容的个人或实体。贡献者不因其贡献而承担超出 Apache 2.0 许可证条款的额外责任。
