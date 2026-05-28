@@ -1,4 +1,4 @@
-# Reasonix Code Skills — 元技能集合
+# Meta-Skills — 元技能集合
 
 一套用于**创建、编排、优化和管理** AI 编码助手技能（Skill）的元技能（Meta-Skill）工具链。这些技能并非 Claude Code 专属——它们在 **esengine\DeepSeek-Reasonix** 上同样完全可用。
 
