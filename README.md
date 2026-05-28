@@ -1,7 +1,7 @@
 # Reasonix Code Skills — 元技能集合
 
 一套用于**创建、编排、优化和管理** Claude Code / Reasonix Code 技能（Skill）的元技能（Meta-Skill）工具链。
-（目前只有skill-for-skills可用性较高）
+
 ---
 
 ## 什么是「元技能」？
