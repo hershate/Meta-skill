@@ -1,7 +1,7 @@
 # Reasonix Code Skills — 元技能集合
 
 一套用于**创建、编排、优化和管理** Claude Code / Reasonix Code 技能（Skill）的元技能（Meta-Skill）工具链。
-
+（目前只有skill-for-skills可用性较高）
 ---
 
 ## 什么是「元技能」？
@@ -73,96 +73,17 @@
 
 ## 技能之间的关系
 
-<div align="center">
+```
+skill-for-skills  ✅ 核心生成引擎（CREATE / UPGRADE / UPDATE_SUM）
+  |
+  +--- project-to-skill  🚧 从代码库逆向提取，自行生成 Skill（不委托 s-f-s）
+  |
+  +--- chain-executor  ⚠️ 按规划批量编排，委托 s-f-s 逐个生成
+         |
+         +--- chain-planner  ⚠️ 复杂任务 → 多 Skill 链规划（只输出文档，不生成 Skill）
 
-<!-- ===== CORE ENGINE ===== -->
-<div style="
-  display: inline-block;
-  background: #1a1a2e; border: 2px solid #4fc3f7;
-  border-radius: 12px; padding: 14px 28px; margin-bottom: 8px;
-">
-  <div style="font-size: 15px; font-weight: 700; color: #4fc3f7;">skill-for-skills</div>
-  <div style="font-size: 12px; color: #90a4ae; margin-top: 2px;">CREATE / UPGRADE / UPDATE_SUM</div>
-  <div style="margin-top: 6px;">
-    <span style="background: #2e7d32; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 11px;">✅ 可用</span>
-    <span style="color: #90a4ae; font-size: 11px; margin-left: 6px;">核心生成引擎</span>
-  </div>
-</div>
-
-<div style="margin: 2px 0;">
-  <span style="color: #90a4ae; font-size: 13px;">▲ 被委托调用 ▲</span>
-</div>
-
-<!-- ===== BRANCHES ===== -->
-<table style="margin: 0 auto; border-collapse: collapse;"><tr>
-
-<!-- Left: project-to-skill -->
-<td style="vertical-align: top; padding: 0 16px;">
-  <div style="
-    background: #1a1a2e; border: 2px dashed #ffb74d;
-    border-radius: 10px; padding: 12px 18px;
-  ">
-    <div style="font-size: 14px; font-weight: 700; color: #ffb74d;">project-to-skill</div>
-    <div style="font-size: 11px; color: #90a4ae; margin-top: 2px;">从代码库逆向提取</div>
-    <div style="margin-top: 6px;">
-      <span style="background: #e65100; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 11px;">🚧 测试中</span>
-    </div>
-  </div>
-  <div style="text-align: center; margin-top: 4px;">
-    <span style="color: #78909c; font-size: 10px;">自行生成，不委托 s-f-s</span>
-  </div>
-</td>
-
-<!-- Center: chain-executor -->
-<td style="vertical-align: top; padding: 0 16px;">
-  <div style="
-    background: #1a1a2e; border: 2px solid #ffb74d;
-    border-radius: 10px; padding: 12px 18px;
-  ">
-    <div style="font-size: 14px; font-weight: 700; color: #ffb74d;">chain-executor</div>
-    <div style="font-size: 11px; color: #90a4ae; margin-top: 2px;">按规划批量编排</div>
-    <div style="margin-top: 6px;">
-      <span style="background: #e65100; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 11px;">⚠️ 已知问题</span>
-    </div>
-  </div>
-  <div style="text-align: center; margin-top: 4px;">
-    <span style="color: #78909c; font-size: 10px;">委托 s-f-s 逐个生成</span>
-  </div>
-  <div style="text-align: center; margin-top: 6px;">
-    <span style="color: #90a4ae; font-size: 13px;">▲ 读取规划输出 ▲</span>
-  </div>
-  <div style="
-    background: #1a1a2e; border: 2px solid #ffb74d;
-    border-radius: 10px; padding: 12px 18px; margin-top: 2px;
-  ">
-    <div style="font-size: 14px; font-weight: 700; color: #ffb74d;">chain-planner</div>
-    <div style="font-size: 11px; color: #90a4ae; margin-top: 2px;">复杂任务 → 多 Skill 链规划</div>
-    <div style="font-size: 11px; color: #78909c;">只输出规划文档，不生成 Skill</div>
-    <div style="margin-top: 6px;">
-      <span style="background: #e65100; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 11px;">⚠️ 已知问题</span>
-    </div>
-  </div>
-</td>
-
-</tr></table>
-
-<!-- ===== INDEPENDENT ===== -->
-<div style="margin-top: 20px;">
-  <div style="
-    display: inline-block;
-    background: #1a1a2e; border: 2px solid #66bb6a;
-    border-radius: 10px; padding: 12px 22px;
-  ">
-    <div style="font-size: 14px; font-weight: 700; color: #66bb6a;">prompt-optimizer</div>
-    <div style="font-size: 11px; color: #90a4ae; margin-top: 2px;">12 维定量分析 + 14 种反模式检测</div>
-    <div style="margin-top: 6px;">
-      <span style="background: #2e7d32; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 11px;">✅ 可用</span>
-      <span style="color: #90a4ae; font-size: 11px; margin-left: 6px;">独立工具，不依赖其他技能</span>
-    </div>
-  </div>
-</div>
-
-</div>
+prompt-optimizer  ✅ 独立工具，12 维定量分析 + 14 种反模式检测，不依赖其他技能
+```
 
 ### 推荐工作流
 
