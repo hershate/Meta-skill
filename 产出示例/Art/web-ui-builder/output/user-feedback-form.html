@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用户反馈 - User Feedback</title>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --primary-light: #eef2ff;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --bg: #f1f5f9;
+            --card-bg: #ffffff;
+            --text: #1e293b;
+            --text-secondary: #64748b;
+            --text-muted: #94a3b8;
+            --border: #e2e8f0;
+            --border-focus: #6366f1;
+            --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+            --shadow: 0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -2px rgba(0,0,0,0.05);
+            --shadow-lg: 0 20px 25px -5px rgba(0,0,0,0.08), 0 8px 10px -6px rgba(0,0,0,0.05);
+            --radius: 12px;
+            --radius-sm: 8px;
+            --transition: 0.2s ease;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Microsoft YaHei", sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background-image:
+                radial-gradient(ellipse at 20% 50%, rgba(99, 102, 241, 0.04) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 20%, rgba(99, 102, 241, 0.06) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 80%, rgba(99, 102, 241, 0.03) 0%, transparent 50%);
+        }
+
+        /* 主容器 */
+        .feedback-container {
+            width: 100%;
+            max-width: 640px;
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-lg);
+            overflow: hidden;
+        }
+
+        /* 顶部标题栏 */
+        .feedback-header {
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            padding: 28px 32px;
+            color: #fff;
+        }
+
+        .feedback-header .icon-circle {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 44px;
+            height: 44px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 50%;
+            margin-bottom: 12px;
+            font-size: 22px;
+        }
+
+        .feedback-header h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+
+        .feedback-header p {
+            font-size: 0.9rem;
+            opacity: 0.85;
+            margin-top: 4px;
+        }
+
+        /* 表单主体 */
+        .feedback-body {
+            padding: 28px 32px;
+        }
+
+        /* 反馈类型卡片选择 */
+        .feedback-types {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-bottom: 24px;
+        }
+
+        .type-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            padding: 14px 8px;
+            border: 2px solid var(--border);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: all var(--transition);
+            background: var(--card-bg);
+            font-size: 0.82rem;
+            color: var(--text-secondary);
+            text-align: center;
+        }
+
+        .type-card:hover {
+            border-color: #c7d2fe;
+            background: var(--primary-light);
+        }
+
+        .type-card.active {
+            border-color: var(--primary);
+            background: var(--primary-light);
+            color: var(--primary);
+            font-weight: 600;
+        }
+
+        .type-card .type-icon {
+            font-size: 1.4rem;
+            line-height: 1;
+        }
+
+        /* 表单组 */
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 18px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 18px;
+        }
+
+        .form-row .form-group {
+            margin-bottom: 0;
+        }
+
+        .form-group label {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .form-group label .required {
+            color: var(--danger);
+            font-size: 0.8rem;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px 14px;
+            font-size: 0.925rem;
+            font-family: inherit;
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius-sm);
+            background: #f8fafc;
+            color: var(--text);
+            transition: all var(--transition);
+            outline: none;
+        }
+
+        .form-group input:hover,
+        .form-group select:hover,
+        .form-group textarea:hover {
+            border-color: #c7d2fe;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            border-color: var(--border-focus);
+            background: #fff;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 120px;
+        }
+
+        /* 输入框带图标 */
+        .input-with-icon {
+            position: relative;
+        }
+
+        .input-with-icon .icon-prefix {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            font-size: 1rem;
+            pointer-events: none;
+        }
+
+        .input-with-icon input {
+            padding-left: 40px;
+        }
+
+        /* 错误状态 */
+        .form-group.error input,
+        .form-group.error select,
+        .form-group.error textarea {
+            border-color: var(--danger);
+            background: #fef2f2;
+        }
+
+        .form-group.error .error-message {
+            font-size: 0.8rem;
+            color: var(--danger);
+            margin-top: 4px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        /* 星级评分 */
+        .rating-section {
+            margin-bottom: 18px;
+        }
+
+        .rating-section label {
+            font-size: 0.875rem;
+            font-weight: 600;
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        .stars {
+            display: flex;
+            gap: 6px;
+        }
+
+        .star-btn {
+            width: 40px;
+            height: 40px;
+            border: none;
+            background: none;
+            font-size: 1.8rem;
+            cursor: pointer;
+            color: #d1d5db;
+            transition: all 0.15s ease;
+            line-height: 1;
+            padding: 0;
+        }
+
+        .star-btn:hover {
+            color: #fbbf24;
+            transform: scale(1.15);
+        }
+
+        .star-btn.active {
+            color: #f59e0b;
+        }
+
+        .star-btn.active.selected {
+            color: #f59e0b;
+        }
+
+        .rating-text {
+            font-size: 0.82rem;
+            color: var(--text-secondary);
+            margin-top: 4px;
+            margin-left: 2px;
+        }
+
+        /* 文件上传区域 */
+        .upload-area {
+            border: 2px dashed var(--border);
+            border-radius: var(--radius-sm);
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all var(--transition);
+            background: #fafbfc;
+            margin-bottom: 18px;
+        }
+
+        .upload-area:hover {
+            border-color: var(--primary);
+            background: var(--primary-light);
+        }
+
+        .upload-area .upload-icon {
+            font-size: 2rem;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+
+        .upload-area p {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        .upload-area .hint {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .upload-area.has-file {
+            border-color: var(--success);
+            background: #f0fdf4;
+        }
+
+        .file-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .file-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #eef2ff;
+            border: 1px solid #c7d2fe;
+            border-radius: 20px;
+            padding: 5px 12px;
+            font-size: 0.8rem;
+            color: var(--primary);
+        }
+
+        .file-chip .remove-file {
+            cursor: pointer;
+            font-size: 1rem;
+            opacity: 0.6;
+            transition: opacity var(--transition);
+        }
+
+        .file-chip .remove-file:hover {
+            opacity: 1;
+        }
+
+        /* 字符计数 */
+        .char-count {
+            text-align: right;
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .char-count.warning {
+            color: var(--warning);
+        }
+
+        .char-count.danger {
+            color: var(--danger);
+        }
+
+        /* 复选框 */
+        .checkbox-group {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            margin-bottom: 24px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            margin-top: 2px;
+            accent-color: var(--primary);
+            flex-shrink: 0;
+        }
+
+        .checkbox-group label {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            cursor: pointer;
+        }
+
+        .checkbox-group a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        .checkbox-group a:hover {
+            text-decoration: underline;
+        }
+
+        /* 按钮 */
+        .btn-row {
+            display: flex;
+            gap: 12px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 12px 24px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            border: none;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: all var(--transition);
+            font-family: inherit;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-hover);
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.35);
+            transform: translateY(-1px);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .btn-secondary {
+            background: #f1f5f9;
+            color: var(--text);
+        }
+
+        .btn-secondary:hover {
+            background: #e2e8f0;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Loading 旋转器 */
+        .spinner {
+            display: none;
+            width: 18px;
+            height: 18px;
+            border: 2.5px solid rgba(255,255,255,0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+
+        .btn-primary.loading .spinner {
+            display: inline-block;
+        }
+
+        .btn-primary.loading .btn-text {
+            opacity: 0.7;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Toast 提示 */
+        .toast {
+            position: fixed;
+            top: 24px;
+            right: 24px;
+            background: var(--success);
+            color: #fff;
+            padding: 14px 20px;
+            border-radius: var(--radius-sm);
+            font-size: 0.9rem;
+            font-weight: 500;
+            box-shadow: var(--shadow-lg);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transform: translateX(calc(100% + 40px));
+            transition: transform 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 1000;
+        }
+
+        .toast.show {
+            transform: translateX(0);
+        }
+
+        .toast.error {
+            background: var(--danger);
+        }
+
+        /* 成功页面 */
+        .success-state {
+            display: none;
+            text-align: center;
+            padding: 48px 32px;
+        }
+
+        .success-state.show {
+            display: block;
+        }
+
+        .success-state .success-icon {
+            width: 72px;
+            height: 72px;
+            background: #d1fae5;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.2rem;
+            margin-bottom: 20px;
+            animation: scaleIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes scaleIn {
+            from { transform: scale(0); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        .success-state h2 {
+            font-size: 1.35rem;
+            margin-bottom: 8px;
+        }
+
+        .success-state p {
+            color: var(--text-secondary);
+            font-size: 0.925rem;
+            margin-bottom: 20px;
+        }
+
+        /* 响应式 */
+        @media (max-width: 768px) {
+            .feedback-body {
+                padding: 20px;
+            }
+
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+
+            .feedback-types {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 480px) {
+            body {
+                padding: 12px;
+            }
+
+            .feedback-header {
+                padding: 20px;
+            }
+
+            .feedback-body {
+                padding: 16px;
+            }
+
+            .btn-row {
+                flex-direction: column;
+            }
+
+            .stars {
+                gap: 2px;
+            }
+
+            .star-btn {
+                width: 36px;
+                height: 36px;
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Toast 通知 -->
+    <div class="toast" id="toast">
+        <span id="toast-icon"></span>
+        <span id="toast-message"></span>
+    </div>
+
+    <!-- 主容器 -->
+    <div class="feedback-container">
+        <!-- 顶部标题 -->
+        <header class="feedback-header">
+            <div class="icon-circle">💬</div>
+            <h1>用户反馈</h1>
+            <p>我们重视你的每一条意见，帮助我们做得更好</p>
+        </header>
+
+        <!-- 反馈表单 -->
+        <form class="feedback-body" id="feedbackForm" novalidate>
+            <!-- 反馈类型选择 -->
+            <div class="feedback-types" id="feedbackTypes">
+                <div class="type-card active" data-type="bug">
+                    <span class="type-icon">🐛</span>
+                    <span>Bug 报告</span>
+                </div>
+                <div class="type-card" data-type="feature">
+                    <span class="type-icon">💡</span>
+                    <span>功能建议</span>
+                </div>
+                <div class="type-card" data-type="improvement">
+                    <span class="type-icon">🔧</span>
+                    <span>改进建议</span>
+                </div>
+                <div class="type-card" data-type="other">
+                    <span class="type-icon">📝</span>
+                    <span>其他</span>
+                </div>
+            </div>
+
+            <!-- 姓名 & 邮箱 -->
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="name">姓名 <span class="required">*</span></label>
+                    <input type="text" id="name" name="name" placeholder="请输入你的姓名" maxlength="50" autocomplete="name">
+                    <span class="error-message"></span>
+                </div>
+                <div class="form-group">
+                    <label for="email">邮箱 <span class="required">*</span></label>
+                    <div class="input-with-icon">
+                        <span class="icon-prefix">📧</span>
+                        <input type="email" id="email" name="email" placeholder="example@company.com" maxlength="100" autocomplete="email">
+                    </div>
+                    <span class="error-message"></span>
+                </div>
+            </div>
+
+            <!-- 主题 -->
+            <div class="form-group">
+                <label for="subject">主题 <span class="required">*</span></label>
+                <input type="text" id="subject" name="subject" placeholder="简要说一下你的反馈主题" maxlength="100">
+                <span class="error-message"></span>
+            </div>
+
+            <!-- 详细描述 -->
+            <div class="form-group">
+                <label for="message">详细描述 <span class="required">*</span></label>
+                <textarea id="message" name="message" placeholder="请详细描述你遇到的问题或建议，包括操作步骤、期望结果等信息…" maxlength="1000"></textarea>
+                <div class="char-count" id="messageCount">0 / 1000</div>
+                <span class="error-message"></span>
+            </div>
+
+            <!-- 星级评分 -->
+            <div class="rating-section">
+                <label>整体满意度评分</label>
+                <div class="stars" id="starRating" role="radiogroup" aria-label="满意度评分">
+                    <button type="button" class="star-btn" data-value="1" aria-label="1星">★</button>
+                    <button type="button" class="star-btn" data-value="2" aria-label="2星">★</button>
+                    <button type="button" class="star-btn" data-value="3" aria-label="3星">★</button>
+                    <button type="button" class="star-btn" data-value="4" aria-label="4星">★</button>
+                    <button type="button" class="star-btn" data-value="5" aria-label="5星">★</button>
+                </div>
+                <div class="rating-text" id="ratingText"></div>
+                <input type="hidden" name="rating" id="ratingValue" value="0">
+            </div>
+
+            <!-- 截图 / 附件上传 -->
+            <div class="form-group">
+                <label>附件（可选）</label>
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-icon">📎</div>
+                    <p>点击或拖拽文件到此处上传</p>
+                    <p class="hint">支持 PNG、JPG、GIF，单文件最大 5MB</p>
+                </div>
+                <div class="file-list" id="fileList"></div>
+                <input type="file" id="fileInput" accept="image/png,image/jpeg,image/gif" style="display:none" multiple>
+            </div>
+
+            <!-- 同意条款 -->
+            <div class="checkbox-group">
+                <input type="checkbox" id="agreement" name="agreement">
+                <label for="agreement">我已阅读并同意 <a href="#" onclick="event.preventDefault()">《反馈收集协议》</a>和<a href="#" onclick="event.preventDefault()">《隐私政策》</a></label>
+            </div>
+
+            <!-- 按钮 -->
+            <div class="btn-row">
+                <button type="reset" class="btn btn-secondary" id="resetBtn">重置表单</button>
+                <button type="submit" class="btn btn-primary" id="submitBtn">
+                    <span class="spinner"></span>
+                    <span class="btn-text">提交反馈</span>
+                </button>
+            </div>
+        </form>
+
+        <!-- 成功状态 -->
+        <div class="success-state" id="successState">
+            <div class="success-icon">✅</div>
+            <h2>反馈提交成功！</h2>
+            <p>感谢你的宝贵意见，我们会在 3 个工作日内处理你的反馈。</p>
+            <p id="ticketId" style="font-size:0.85rem;color:var(--primary);font-weight:600;"></p>
+            <button class="btn btn-primary" style="max-width:200px;margin:0 auto;" id="newFeedbackBtn">提交新反馈</button>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            // === 反馈类型选择 ===
+            const typeCards = document.querySelectorAll('.type-card');
+            let selectedType = 'bug';
+
+            typeCards.forEach(card => {
+                card.addEventListener('click', () => {
+                    typeCards.forEach(c => c.classList.remove('active'));
+                    card.classList.add('active');
+                    selectedType = card.dataset.type;
+                });
+            });
+
+            // === 星级评分 ===
+            const starBtns = document.querySelectorAll('.star-btn');
+            const ratingValue = document.getElementById('ratingValue');
+            const ratingText = document.getElementById('ratingText');
+            const ratingLabels = ['', '非常不满意', '不满意', '一般', '满意', '非常满意'];
+            let currentRating = 0;
+
+            starBtns.forEach(btn => {
+                btn.addEventListener('mouseenter', () => {
+                    const val = parseInt(btn.dataset.value);
+                    highlightStars(val);
+                });
+
+                btn.addEventListener('click', () => {
+                    const val = parseInt(btn.dataset.value);
+                    if (currentRating === val) {
+                        currentRating = 0;
+                        highlightStars(0);
+                        ratingValue.value = '0';
+                        ratingText.textContent = '';
+                    } else {
+                        currentRating = val;
+                        highlightStars(val);
+                        ratingValue.value = val;
+                        ratingText.textContent = ratingLabels[val];
+                    }
+                    starBtns.forEach(b => b.classList.remove('selected'));
+                    if (currentRating > 0) {
+                        btn.classList.add('selected');
+                    }
+                });
+            });
+
+            const starsContainer = document.getElementById('starRating');
+            starsContainer.addEventListener('mouseleave', () => {
+                highlightStars(currentRating);
+            });
+
+            function highlightStars(count) {
+                starBtns.forEach(b => {
+                    const val = parseInt(b.dataset.value);
+                    b.classList.toggle('active', val <= count);
+                });
+            }
+
+            // === 文件上传 ===
+            const uploadArea = document.getElementById('uploadArea');
+            const fileInput = document.getElementById('fileInput');
+            const fileList = document.getElementById('fileList');
+            const selectedFiles = new DataTransfer();
+
+            uploadArea.addEventListener('click', () => fileInput.click());
+
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.style.borderColor = 'var(--primary)';
+                uploadArea.style.background = 'var(--primary-light)';
+            });
+
+            uploadArea.addEventListener('dragleave', () => {
+                uploadArea.style.borderColor = 'var(--border)';
+                uploadArea.style.background = '#fafbfc';
+            });
+
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.style.borderColor = 'var(--border)';
+                uploadArea.style.background = '#fafbfc';
+                addFiles(e.dataTransfer.files);
+            });
+
+            fileInput.addEventListener('change', () => {
+                addFiles(fileInput.files);
+                fileInput.value = '';
+            });
+
+            function addFiles(files) {
+                for (const file of files) {
+                    if (!['image/png', 'image/jpeg', 'image/gif'].includes(file.type)) {
+                        showToast('仅支持 PNG、JPG、GIF 格式', true);
+                        continue;
+                    }
+                    if (file.size > 5 * 1024 * 1024) {
+                        showToast(`文件 ${file.name} 超过 5MB 限制`, true);
+                        continue;
+                    }
+                    const exists = Array.from(selectedFiles.files).some(f =>
+                        f.name === file.name && f.size === file.size
+                    );
+                    if (!exists) {
+                        selectedFiles.items.add(file);
+                    }
+                }
+                renderFileList();
+            }
+
+            function removeFile(index) {
+                const dt = new DataTransfer();
+                Array.from(selectedFiles.files).forEach((f, i) => {
+                    if (i !== index) dt.items.add(f);
+                });
+                // Update selectedFiles
+                selectedFiles.items.clear();
+                Array.from(dt.files).forEach(f => selectedFiles.items.add(f));
+                renderFileList();
+            }
+
+            function renderFileList() {
+                fileList.innerHTML = '';
+                const files = Array.from(selectedFiles.files);
+                if (files.length > 0) {
+                    uploadArea.classList.add('has-file');
+                } else {
+                    uploadArea.classList.remove('has-file');
+                }
+                files.forEach((file, index) => {
+                    const chip = document.createElement('div');
+                    chip.className = 'file-chip';
+                    chip.innerHTML = `
+                        <span>📄 ${file.name}</span>
+                        <span class="remove-file" data-index="${index}">✕</span>
+                    `;
+                    chip.querySelector('.remove-file').addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        removeFile(index);
+                    });
+                    fileList.appendChild(chip);
+                });
+            }
+
+            // === 字符计数 ===
+            const messageTextarea = document.getElementById('message');
+            const messageCount = document.getElementById('messageCount');
+
+            messageTextarea.addEventListener('input', () => {
+                const len = messageTextarea.value.length;
+                const max = 1000;
+                messageCount.textContent = `${len} / ${max}`;
+                messageCount.classList.remove('warning', 'danger');
+                if (len > max * 0.9) messageCount.classList.add('danger');
+                else if (len > max * 0.7) messageCount.classList.add('warning');
+            });
+
+            // === 表单验证 ===
+            const form = document.getElementById('feedbackForm');
+            const nameInput = document.getElementById('name');
+            const emailInput = document.getElementById('email');
+            const subjectInput = document.getElementById('subject');
+            const agreementCheck = document.getElementById('agreement');
+
+            function showFieldError(field, message) {
+                const group = field.closest('.form-group');
+                group.classList.add('error');
+                const msgEl = group.querySelector('.error-message');
+                if (msgEl) msgEl.textContent = '⚠ ' + message;
+            }
+
+            function clearFieldError(field) {
+                const group = field.closest('.form-group');
+                group.classList.remove('error');
+                const msgEl = group.querySelector('.error-message');
+                if (msgEl) msgEl.textContent = '';
+            }
+
+            // 实时清除错误
+            [nameInput, emailInput, subjectInput, messageTextarea].forEach(field => {
+                field.addEventListener('input', () => clearFieldError(field));
+            });
+
+            function validateForm() {
+                let isValid = true;
+
+                // 姓名
+                if (!nameInput.value.trim()) {
+                    showFieldError(nameInput, '请输入你的姓名');
+                    isValid = false;
+                } else if (nameInput.value.trim().length < 2) {
+                    showFieldError(nameInput, '姓名至少需要 2 个字符');
+                    isValid = false;
+                }
+
+                // 邮箱
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailInput.value.trim()) {
+                    showFieldError(emailInput, '请输入邮箱地址');
+                    isValid = false;
+                } else if (!emailRegex.test(emailInput.value.trim())) {
+                    showFieldError(emailInput, '请输入有效的邮箱地址');
+                    isValid = false;
+                }
+
+                // 主题
+                if (!subjectInput.value.trim()) {
+                    showFieldError(subjectInput, '请输入反馈主题');
+                    isValid = false;
+                } else if (subjectInput.value.trim().length < 4) {
+                    showFieldError(subjectInput, '主题至少需要 4 个字符');
+                    isValid = false;
+                }
+
+                // 详细描述
+                if (!messageTextarea.value.trim()) {
+                    showFieldError(messageTextarea, '请输入详细描述');
+                    isValid = false;
+                } else if (messageTextarea.value.trim().length < 10) {
+                    showFieldError(messageTextarea, '描述至少需要 10 个字符');
+                    isValid = false;
+                }
+
+                // 同意条款
+                if (!agreementCheck.checked) {
+                    const group = agreementCheck.closest('.checkbox-group');
+                    group.style.outline = '2px solid var(--danger)';
+                    group.style.borderRadius = '8px';
+                    group.style.padding = '4px';
+                    group.style.outlineOffset = '2px';
+                    setTimeout(() => {
+                        group.style.outline = '';
+                        group.style.padding = '';
+                        group.style.outlineOffset = '';
+                    }, 2000);
+                    isValid = false;
+                    showToast('请先阅读并同意反馈收集协议和隐私政策', true);
+                }
+
+                return isValid;
+            }
+
+            // === 表单提交 ===
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+
+                if (!validateForm()) return;
+
+                const submitBtn = document.getElementById('submitBtn');
+                submitBtn.classList.add('loading');
+                submitBtn.disabled = true;
+
+                // 模拟提交延迟
+                await new Promise(resolve => setTimeout(resolve, 1500));
+
+                // 生成工单号
+                const ticketId = 'TK-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).substring(2, 6).toUpperCase();
+
+                // 显示成功状态
+                form.style.display = 'none';
+                const successState = document.getElementById('successState');
+                successState.classList.add('show');
+                document.getElementById('ticketId').textContent = '工单编号：' + ticketId;
+
+                submitBtn.classList.remove('loading');
+                submitBtn.disabled = false;
+
+                showToast('反馈提交成功！感谢你的支持 🎉');
+                console.log('反馈数据：', {
+                    type: selectedType,
+                    name: nameInput.value.trim(),
+                    email: emailInput.value.trim(),
+                    subject: subjectInput.value.trim(),
+                    message: messageTextarea.value.trim(),
+                    rating: currentRating,
+                    files: Array.from(selectedFiles.files).map(f => f.name)
+                });
+            });
+
+            // === 重置按钮 ===
+            const resetBtn = document.getElementById('resetBtn');
+            resetBtn.addEventListener('click', () => {
+                typeCards.forEach(c => c.classList.remove('active'));
+                document.querySelector('.type-card[data-type="bug"]').classList.add('active');
+                selectedType = 'bug';
+                currentRating = 0;
+                highlightStars(0);
+                ratingValue.value = '0';
+                ratingText.textContent = '';
+                starBtns.forEach(b => b.classList.remove('selected'));
+                messageCount.textContent = '0 / 1000';
+                selectedFiles.items.clear();
+                renderFileList();
+                document.querySelectorAll('.form-group.error').forEach(g => g.classList.remove('error'));
+                document.querySelectorAll('.error-message').forEach(el => el.textContent = '');
+            });
+
+            // === 新反馈按钮 ===
+            document.getElementById('newFeedbackBtn').addEventListener('click', () => {
+                document.getElementById('successState').classList.remove('show');
+                form.style.display = '';
+                form.reset();
+                resetBtn.click();
+            });
+
+            // === Toast ===
+            let toastTimer;
+            function showToast(message, isError = false) {
+                const toast = document.getElementById('toast');
+                document.getElementById('toast-message').textContent = message;
+                document.getElementById('toast-icon').textContent = isError ? '❌' : '✅';
+                toast.classList.toggle('error', isError);
+                toast.classList.add('show');
+                clearTimeout(toastTimer);
+                toastTimer = setTimeout(() => toast.classList.remove('show'), 3000);
+            }
+        })();
+    </script>
+</body>
+</html>

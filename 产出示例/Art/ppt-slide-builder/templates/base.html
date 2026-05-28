@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{PRESENTATION_TITLE}}</title>
+<style>
+/* ========== THEME ========== */
+:root {
+  /* Colors */
+  --bg: #ffffff;
+  --bg-alt: #f8f9fa;
+  --text: #1a1a1a;
+  --text-secondary: #6b7280;
+  --accent: #3b82f6;
+  --accent-hover: #2563eb;
+  --border: #e5e7eb;
+
+  /* Typography */
+  --font-display: 'Georgia', 'Times New Roman', serif;
+  --font-body: system-ui, -apple-system, sans-serif;
+  --font-mono: 'Courier New', monospace;
+
+  /* Spacing */
+  --slide-padding: 4rem;
+  --content-max-width: 960px;
+
+  /* Transition */
+  --transition-duration: 0.6s;
+  --transition-easing: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ========== RESET ========== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; font-family: var(--font-body); color: var(--text); background: var(--bg); -webkit-font-smoothing: antialiased; }
+
+/* ========== PRESENTATION ========== */
+.presentation { height: 100dvh; position: relative; overflow: hidden; }
+
+/* ========== SLIDES ========== */
+.slide {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  justify-content: center; align-items: center;
+  padding: var(--slide-padding);
+  opacity: 0; visibility: hidden;
+  transition: opacity var(--transition-duration) var(--transition-easing), transform var(--transition-duration) var(--transition-easing);
+  transform: translateY(24px) scale(0.98);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.slide.active {
+  opacity: 1; visibility: visible;
+  transform: translateY(0) scale(1);
+}
+.slide > * { max-width: var(--content-max-width); width: 100%; }
+
+/* Slide content typography */
+.slide h1 { font-family: var(--font-display); font-size: clamp(2rem, 5vw, 4rem); line-height: 1.15; margin-bottom: 0.75em; }
+.slide h2 { font-family: var(--font-display); font-size: clamp(1.5rem, 3.5vw, 2.5rem); line-height: 1.2; margin-bottom: 0.6em; }
+.slide h3 { font-size: clamp(1.1rem, 2vw, 1.4rem); font-weight: 600; margin-bottom: 0.5em; }
+.slide p { font-size: clamp(1rem, 1.8vw, 1.2rem); line-height: 1.7; margin-bottom: 1em; color: var(--text-secondary); }
+.slide ul, .slide ol { padding-left: 1.5em; margin-bottom: 1em; }
+.slide li { font-size: clamp(1rem, 1.8vw, 1.2rem); line-height: 1.7; margin-bottom: 0.4em; color: var(--text-secondary); }
+.slide img { max-width: 100%; height: auto; border-radius: 8px; margin: 1em 0; }
+.slide blockquote { border-left: 4px solid var(--accent); padding-left: 1.5em; margin: 1em 0; font-style: italic; color: var(--text-secondary); }
+.slide code { font-family: var(--font-mono); font-size: 0.9em; background: var(--bg-alt); padding: 0.2em 0.4em; border-radius: 4px; }
+.slide pre { background: var(--bg-alt); padding: 1.5em; border-radius: 8px; overflow-x: auto; margin: 1em 0; }
+.slide pre code { background: none; padding: 0; }
+
+/* Content layouts */
+.slide .content-center { text-align: center; align-items: center; }
+.slide .content-left { text-align: left; align-items: flex-start; }
+.slide .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin: 1em 0; }
+.slide .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem; margin: 1em 0; }
+@media (max-width: 768px) {
+  .slide .grid-2, .slide .grid-3 { grid-template-columns: 1fr; }
+}
+
+/* ========== SLIDE TRANSITIONS ========== */
+/* Default: fade + slide up */
+.trans-fade .slide { transform: none; }
+.trans-fade .slide.active { opacity: 1; }
+
+.trans-slide-left .slide { transform: translateX(30px); }
+.trans-slide-left .slide.active { transform: translateX(0); }
+
+.trans-slide-right .slide { transform: translateX(-30px); }
+.trans-slide-right .slide.active { transform: translateX(0); }
+
+.trans-slide-up .slide { transform: translateY(30px); }
+.trans-slide-up .slide.active { transform: translateY(0); }
+
+.trans-zoom .slide { transform: scale(0.85); }
+.trans-zoom .slide.active { transform: scale(1); }
+
+.trans-flip {
+  perspective: 1200px;
+}
+.trans-flip .slide {
+  transform: rotateX(10deg) translateY(20px);
+  transform-origin: bottom;
+  backface-visibility: hidden;
+}
+.trans-flip .slide.active {
+  transform: rotateX(0) translateY(0);
+}
+
+.trans-none .slide { transform: none; transition: opacity 0.3s ease; }
+
+/* ========== ELEMENT ANIMATIONS ========== */
+/* All animations trigger when parent .slide becomes .active */
+/* Base animation styles */
+.slide [class*="anim-"] {
+  opacity: 0;
+}
+.slide.active [class*="anim-"] {
+  animation-fill-mode: both;
+  animation-timing-function: var(--transition-easing);
+}
+
+/* Fade in */
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.slide.active .anim-fade-in { animation-name: fadeIn; animation-duration: 0.6s; }
+
+/* Slide up */
+@keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+.slide.active .anim-slide-up { animation-name: slideUp; animation-duration: 0.6s; }
+
+/* Slide down */
+@keyframes slideDown { from { opacity: 0; transform: translateY(-30px); } to { opacity: 1; transform: translateY(0); } }
+.slide.active .anim-slide-down { animation-name: slideDown; animation-duration: 0.6s; }
+
+/* Slide left */
+@keyframes slideLeft { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: translateX(0); } }
+.slide.active .anim-slide-left { animation-name: slideLeft; animation-duration: 0.6s; }
+
+/* Slide right */
+@keyframes slideRight { from { opacity: 0; transform: translateX(-30px); } to { opacity: 1; transform: translateX(0); } }
+.slide.active .anim-slide-right { animation-name: slideRight; animation-duration: 0.6s; }
+
+/* Scale in */
+@keyframes scaleIn { from { opacity: 0; transform: scale(0.7); } to { opacity: 1; transform: scale(1); } }
+.slide.active .anim-scale-in { animation-name: scaleIn; animation-duration: 0.5s; }
+
+/* Rotate in */
+@keyframes rotateIn { from { opacity: 0; transform: rotate(-5deg) scale(0.9); } to { opacity: 1; transform: rotate(0) scale(1); } }
+.slide.active .anim-rotate-in { animation-name: rotateIn; animation-duration: 0.6s; }
+
+/* Blur in */
+@keyframes blurIn { from { opacity: 0; filter: blur(10px); } to { opacity: 1; filter: blur(0); } }
+.slide.active .anim-blur-in { animation-name: blurIn; animation-duration: 0.8s; }
+
+/* Flip in */
+@keyframes flipIn { from { opacity: 0; transform: perspective(600px) rotateX(-20deg); } to { opacity: 1; transform: perspective(600px) rotateX(0); } }
+.slide.active .anim-flip-in { animation-name: flipIn; animation-duration: 0.7s; }
+
+/* Bounce in (subtle) */
+@keyframes bounceIn { 0% { opacity: 0; transform: translateY(40px); } 60% { transform: translateY(-8px); } 80% { transform: translateY(2px); } 100% { opacity: 1; transform: translateY(0); } }
+.slide.active .anim-bounce-in { animation-name: bounceIn; animation-duration: 0.8s; }
+
+/* Typewriter (for text only) */
+.slide.active .anim-typewriter {
+  overflow: hidden;
+  white-space: nowrap;
+  border-right: 2px solid var(--accent);
+  width: 0;
+  animation: typewriter 1.5s steps(30) forwards, blink 0.8s step-end infinite;
+}
+@keyframes typewriter { to { width: 100%; } }
+@keyframes blink { 50% { border-color: transparent; } }
+
+/* Highlight (background highlight sweep) */
+@keyframes highlight { from { background-position: 200% center; } to { background-position: 0 center; } }
+.slide.active .anim-highlight {
+  background: linear-gradient(90deg, transparent 0, transparent 40%, rgba(59,130,246,0.15) 40%, rgba(59,130,246,0.15) 60%, transparent 60%, transparent 100%);
+  background-size: 200% 100%;
+  animation: highlight 0.8s var(--transition-easing) forwards;
+}
+
+/* Animation delays (100ms increments) */
+.slide.active .anim-delay-1 { animation-delay: 0.1s; }
+.slide.active .anim-delay-2 { animation-delay: 0.2s; }
+.slide.active .anim-delay-3 { animation-delay: 0.3s; }
+.slide.active .anim-delay-4 { animation-delay: 0.4s; }
+.slide.active .anim-delay-5 { animation-delay: 0.5s; }
+.slide.active .anim-delay-6 { animation-delay: 0.6s; }
+.slide.active .anim-delay-7 { animation-delay: 0.7s; }
+.slide.active .anim-delay-8 { animation-delay: 0.8s; }
+.slide.active .anim-delay-9 { animation-delay: 0.9s; }
+.slide.active .anim-delay-10 { animation-delay: 1.0s; }
+
+/* ========== NAVIGATION ========== */
+.slide-nav {
+  position: fixed;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: color-mix(in srgb, var(--bg) 90%, transparent);
+  backdrop-filter: blur(8px);
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  border: 1px solid var(--border);
+  z-index: 1000;
+  user-select: none;
+}
+
+.nav-btn {
+  width: 36px; height: 36px;
+  border: none; border-radius: 50%;
+  background: var(--bg-alt);
+  color: var(--text);
+  font-size: 1.1rem;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.2s, transform 0.2s;
+}
+.nav-btn:hover { background: var(--accent); color: white; transform: scale(1.05); }
+.nav-btn:active { transform: scale(0.95); }
+.nav-btn:disabled { opacity: 0.3; cursor: default; transform: none; }
+.nav-btn:disabled:hover { background: var(--bg-alt); color: var(--text); }
+
+.nav-dots {
+  display: flex;
+  gap: 6px;
+}
+.nav-dot {
+  width: 8px; height: 8px;
+  border: none; border-radius: 50%;
+  background: var(--border);
+  cursor: pointer;
+  transition: background 0.3s, transform 0.3s;
+  padding: 0;
+}
+.nav-dot:hover { transform: scale(1.3); }
+.nav-dot.active { background: var(--accent); transform: scale(1.2); }
+
+.slide-counter {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  min-width: 3em;
+  text-align: center;
+}
+
+/* Progress bar */
+.slide-progress {
+  position: fixed;
+  top: 0; left: 0;
+  height: 3px;
+  background: var(--accent);
+  z-index: 1001;
+  transition: width 0.4s var(--transition-easing);
+}
+
+/* ========== REDUCED MOTION ========== */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .slide { transform: none !important; }
+}
+
+/* ========== RESPONSIVE ========== */
+@media (max-width: 768px) {
+  :root { --slide-padding: 2rem; }
+  .slide-nav { gap: 0.5rem; padding: 0.4rem 0.8rem; }
+}
+@media (max-width: 480px) {
+  :root { --slide-padding: 1.2rem; }
+  .slide h1 { font-size: clamp(1.5rem, 7vw, 2rem); }
+  .slide-nav { bottom: 1rem; }
+  .nav-btn { width: 30px; height: 30px; font-size: 0.9rem; }
+}
+</style>
+</head>
+<body>
+
+<div class="presentation" id="presentation">
+
+  <!-- SLIDE: slide-1 -->
+  <section id="slide-1" class="slide active" data-slide="1" role="region" aria-label="Slide 1" aria-hidden="false">
+    <div class="content-center">
+      <h1 class="anim-fade-in">{{TITLE}}</h1>
+      <p class="anim-fade-in anim-delay-2" style="font-size:1.4em;">{{SUBTITLE}}</p>
+      <p class="anim-fade-in anim-delay-4" style="margin-top:2em;font-size:0.9em;">按 <kbd>→</kbd> 或 <kbd>↓</kbd> 开始浏览</p>
+    </div>
+  </section>
+  <!-- /SLIDE -->
+
+  <!-- SLIDE: slide-2 -->
+  <section id="slide-2" class="slide" data-slide="2" role="region" aria-label="Slide 2" aria-hidden="true">
+    <div class="content-left">
+      <h2 class="anim-slide-up">{{SLIDE2_TITLE}}</h2>
+      <div class="anim-slide-up anim-delay-1">{{SLIDE2_CONTENT}}</div>
+    </div>
+  </section>
+  <!-- /SLIDE -->
+
+</div>
+
+<!-- Navigation -->
+<nav class="slide-nav" aria-label="幻灯片导航">
+  <button class="nav-btn" id="prevBtn" onclick="navigate(-1)" aria-label="上一页">‹</button>
+  <div class="nav-dots" id="navDots"></div>
+  <button class="nav-btn" id="nextBtn" onclick="navigate(1)" aria-label="下一页">›</button>
+  <span class="slide-counter"><span id="slideCurrent">1</span> / <span id="slideTotal">{{SLIDE_COUNT}}</span></span>
+</nav>
+
+<div class="slide-progress" id="slideProgress" style="width:{{PROGRESS_PERCENT}}%;"></div>
+
+<script>
+(function() {
+  'use strict';
+
+  var slides = document.querySelectorAll('[data-slide]');
+  var current = 0;
+  var isAnimating = false;
+
+  // Build dots
+  var dotsContainer = document.getElementById('navDots');
+  for (var i = 0; i < slides.length; i++) {
+    var dot = document.createElement('button');
+    dot.className = 'nav-dot' + (i === 0 ? ' active' : '');
+    dot.setAttribute('aria-label', '转到第 ' + (i + 1) + ' 页');
+    dot.onclick = (function(idx) { return function() { goTo(idx); }; })(i);
+    dotsContainer.appendChild(dot);
+  }
+
+  function goTo(index) {
+    if (isAnimating) return;
+    if (index < 0 || index >= slides.length) return;
+    if (index === current) return;
+    isAnimating = true;
+
+    slides[current].classList.remove('active');
+    slides[current].setAttribute('aria-hidden', 'true');
+    slides[index].classList.add('active');
+    slides[index].setAttribute('aria-hidden', 'false');
+    current = index;
+
+    // Update UI
+    document.getElementById('slideCurrent').textContent = current + 1;
+    document.getElementById('slideProgress').style.width = ((current + 1) / slides.length * 100) + '%';
+
+    var dots = dotsContainer.querySelectorAll('.nav-dot');
+    for (var d = 0; d < dots.length; d++) {
+      dots[d].classList.toggle('active', d === current);
+    }
+    document.getElementById('prevBtn').disabled = current === 0;
+    document.getElementById('nextBtn').disabled = current === slides.length - 1;
+
+    // Update URL hash
+    location.hash = 'slide-' + (current + 1);
+
+    setTimeout(function() { isAnimating = false; }, 500);
+  }
+
+  function navigate(dir) {
+    goTo(current + dir);
+  }
+
+  // Keyboard navigation
+  document.addEventListener('keydown', function(e) {
+    var key = e.key;
+    if (key === 'ArrowRight' || key === 'ArrowDown' || key === ' ') {
+      e.preventDefault();
+      navigate(1);
+    } else if (key === 'ArrowLeft' || key === 'ArrowUp') {
+      e.preventDefault();
+      navigate(-1);
+    } else if (key === 'Home') {
+      e.preventDefault();
+      goTo(0);
+    } else if (key === 'End') {
+      e.preventDefault();
+      goTo(slides.length - 1);
+    }
+  });
+
+  // Mouse wheel navigation (simulates PPT scroll behavior)
+  var presentation = document.getElementById('presentation');
+  presentation.addEventListener('wheel', function(e) {
+    if (isAnimating) return;
+    // Only trigger if the wheel event is not inside a scrollable child element
+    var target = e.target;
+    var scrollable = target.closest('[style*="overflow-y: auto"], [style*="overflow: auto"], .slide');
+    if (scrollable && scrollable.scrollHeight > scrollable.clientHeight) {
+      // Element has internal scroll — only navigate if at top/bottom boundary
+      if (e.deltaY > 0 && scrollable.scrollTop + scrollable.clientHeight >= scrollable.scrollHeight - 2) {
+        e.preventDefault();
+        navigate(1);
+      } else if (e.deltaY < 0 && scrollable.scrollTop <= 2) {
+        e.preventDefault();
+        navigate(-1);
+      }
+      // Otherwise let the natural scroll happen
+    } else {
+      // No scrollable content — wheel always navigates
+      e.preventDefault();
+      if (e.deltaY > 0) navigate(1);
+      else navigate(-1);
+    }
+  }, { passive: false });
+
+  // Click on blank space to advance (PPT behavior)
+  presentation.addEventListener('click', function(e) {
+    if (isAnimating) return;
+    // Only advance if click target is the presentation background or a slide's blank area
+    // Do NOT advance if clicking on interactive elements
+    var tag = e.target.tagName;
+    if (tag === 'A' || tag === 'BUTTON' || tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+    if (e.target.closest('.slide-nav')) return;
+    if (e.target.closest('a, button, input, select, textarea')) return;
+    // Check if the click is directly on the slide background (not on content)
+    if (e.target === presentation || e.target.classList.contains('slide') || e.target === document.body) {
+      e.preventDefault();
+      navigate(1);
+    } else {
+      // Click on non-interactive content (text, images, etc.) — go to next
+      e.preventDefault();
+      navigate(1);
+    }
+  });
+
+  // Touch/swipe support
+  (function() {
+    var startX = 0, startY = 0;
+    var presentation = document.getElementById('presentation');
+    presentation.addEventListener('touchstart', function(e) {
+      startX = e.changedTouches[0].screenX;
+      startY = e.changedTouches[0].screenY;
+    }, { passive: true });
+    presentation.addEventListener('touchend', function(e) {
+      var endX = e.changedTouches[0].screenX;
+      var endY = e.changedTouches[0].screenY;
+      var diffX = startX - endX;
+      var diffY = startY - endY;
+      if (Math.abs(diffX) > 50 && Math.abs(diffX) > Math.abs(diffY)) {
+        if (diffX > 0) navigate(1);
+        else navigate(-1);
+      }
+    }, { passive: true });
+  })();
+
+  // Handle hash on load
+  if (location.hash) {
+    var match = location.hash.match(/slide-(\d+)/);
+    if (match) {
+      var idx = parseInt(match[1], 10) - 1;
+      if (idx >= 0 && idx < slides.length) {
+        goTo(idx);
+      }
+    }
+  }
+
+  // Expose for inline use
+  window.navigate = navigate;
+  window.goTo = goTo;
+})();
+</script>
+</body>
+</html>
