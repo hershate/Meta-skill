@@ -1,4 +1,4 @@
----
+﻿---
 name: skill-chain-planner
 description: >-
   Decompose complex tasks into multi-skill chains. Generates step-by-step
@@ -7,9 +7,10 @@ description: >-
   "复杂任务拆分", "多skill协作", "chain planner", "工作流拆分",
   "多步骤任务", "skill pipeline", "架构规划", "多步工作流",
   "pipeline设计", "skill依赖分析", "skill编排", "任务流水线".
-version: 1.3.0
+version: 1.5.0
 metadata:
   tags: planning, architecture, workflow, skill-chain, decomposition
+  output_template: templates/data-exchange-format.md
 allowed-tools: Read Write Glob WebSearch
 context: fork
 agent: Plan
@@ -135,10 +136,111 @@ agent: Plan
 
 如果可行性评估出现 ❌，**在向用户输出的理解确认中包含风险警告**。
 
-### Step 2: 任务分解
+### Step 2: 复杂度判定与路径选择
+
+> **目标**: 在进入耗时分解之前，先用评分制判断该任务是适合单个 Skill 还是需要多 Skill 链。简单任务直接输出单 Skill 推荐文件并终止，避免浪费分析成本。
+
+基于 Step 1 的分析结果，从 5 个维度快速评估任务复杂度：
+
+| 维度 | 评分 1（简单） | 评分 2（中等） | 评分 3（复杂） |
+|------|-------------|-------------|-------------|
+| **处理阶段数** | 1 个阶段（如纯转换、纯分析） | 2-3 个阶段 | 4+ 个阶段 |
+| **领域跨度** | 单一领域知识 | 2 个领域 | 3+ 个领域 |
+| **输出产物数** | 1 个明确产物 | 2-3 个产物 | 4+ 个产物 |
+| **条件分支复杂度** | 无分支，纯线性 | 1-2 个条件分支 | 3+ 个分支或包含循环/重试 |
+| **独立可复用性** | 各阶段紧密耦合，不可独立使用 | 部分阶段可独立使用 | 多数阶段有独立的复用价值 |
+
+**评分规则：**
+- **总分 ≤ 7**：该任务适合作为**单个 Skill** 实现 → **走 2A 单 Skill 路径**
+- **总分 8-12**：边界情况，默认走单 Skill 路径但标注 "可考虑拆分" → **走 2A 路径**
+- **总分 ≥ 13**：该任务需要多 Skill 链 → **走 2B 多 Skill 链路径**（继续分解）
+
+**评分结果输出格式：**
+```
+## 复杂度判定
+| 维度 | 评分 | 依据 |
+|------|------|------|
+| 处理阶段数 | {1-3} | {简述阶段} |
+| 领域跨度 | {1-3} | {涉及的领域} |
+| 输出产物数 | {1-3} | {产物列表} |
+| 条件分支复杂度 | {1-3} | {分支情况} |
+| 独立可复用性 | {1-3} | {可复用判断} |
+| **总分** | **{N}** | → {单 Skill / 多 Skill 链} |
+```
+
+---
+
+#### 2A. 单 Skill 路径（总分 ≤ 12）
+
+该任务无需拆分为多个 Skill。直接将 Step 1 的分析结果输出为**单 Skill 推荐文件**，然后终止规划流程。
+
+**输出文件**：`./skill-plan-{task-name}.md`（项目根目录）
+
+**文件内容模板**：
+
+```markdown
+---
+plan_type: single-skill
+generated_at: "{YYYY-MM-DD HH:MM:SS}"
+complexity_score: {N}/15
+source: skill-chain-planner v1.5
+---
+
+# {任务名称} — Skill 规划
+
+## 复杂度判定结果
+| 维度 | 评分 |
+|------|------|
+| 处理阶段数 | {1-3} |
+| 领域跨度 | {1-3} |
+| 输出产物数 | {1-3} |
+| 条件分支复杂度 | {1-3} |
+| 独立可复用性 | {1-3} |
+| **总分** | **{N}/15** |
+
+**结论**：该任务复杂度较低（≤12/15），适合作为单个 Skill 实现，无需拆分为 Skill 链。
+
+## 任务理解
+- **核心目标**：{Step 1.2 的输出}
+- **输入**：{Step 1.2 的输入描述}
+- **输出**：{Step 1.2 的输出描述}
+- **关键约束**：{Step 1.7 的关键约束}
+
+## 建议的 Skill 规格
+
+使用 `/skill-for-skills` 创建该 Skill 时的参考规格：
+
+```
+Skill 名称: {建议的 kebab-case 名称}
+核心功能: {一句话 core_function}
+触发词: [{3-5 个触发关键词}]
+建议工具: [{从功能类型推断的工具列表}]
+Workflow 步骤:
+  1. {步骤1}
+  2. {步骤2}
+  ...
+```
+
+## 下一步操作
+在 Claude Code 中输入以下命令创建该 Skill：
+
+    /skill-for-skills {核心功能描述 + 触发词}
+
+或直接粘贴上述 Skill 规格。
+```
+
+**输出后终止流程**，不再执行后续步骤。
+
+---
+
+#### 2B. 多 Skill 链路径（总分 ≥ 13）
+
+该任务需要拆分为多 Skill 链。继续执行以下分解流程。
+
+### 任务分解
 基于 Step 1 的分析结果，将复杂任务按功能边界拆分为多个子任务。每个子任务遵循 **单一职责原则**——只做一件事，并且做好。
 
-**2.1 识别节点类型**
+**2B.1 识别节点类型**
 从 Step 1.8 的初步节点出发，使用四种节点类型标注每个候选子任务：
 
 | 节点类型 | 特征 | 典型例子 |
@@ -148,7 +250,7 @@ agent: Plan
 | **生成** | 需要创作、撰写、组合、产出 | 写报告、生成图表、构造回复、组装模板 |
 | **操作** | 读写文件、调用 API、执行命令、触发流程 | 下载文件、发送通知、清理缓存、备份 |
 
-**2.2 选择分解模式**
+**2B.2 选择分解模式**
 根据任务特征选择合适的分解模式：
 
 | 模式 | 适用场景 | 分解方式 |
@@ -159,7 +261,7 @@ agent: Plan
 | **关注点分解** | 任务混合了不同领域知识 | 按知识领域拆分：数据部分 / 算法部分 / 展示部分 |
 | **阶段分解** | 任务周期长、各阶段差异大 | 准备期 / 执行期 / 验证期 / 交付期 |
 
-**2.3 分解启发式规则**
+**2B.3 分解启发式规则**
 
 - **经验法则#1** — 每个子任务的 Workflow 不超过 5 步。如果需要超过 5 步，说明该子任务可能还可以进一步拆分。
 - **经验法则#2** — 每个子任务的 description 应能在 1-2 句话内说清。如果说不清，说明粒度太大。
@@ -167,7 +269,7 @@ agent: Plan
 - **经验法则#4** — 如果某个子任务需要多个不同领域的专业知识，考虑进一步拆分。
 - **经验法则#5** — 输出物作为拆分的锚点：每个子任务应该产出 1 个明确的输出物。
 
-**2.4 分解粒度检查**
+**2B.4 分解粒度检查**
 完成初步分解后，逐条检查：
 
 - [ ] 每个子任务是否只做一件事？（如果描述包含"和"字，可能需要拆分）
@@ -178,11 +280,11 @@ agent: Plan
 - [ ] 是否每个子任务都能独立测试？
 
 **停止条件判断：**
-- **子任务数 < 2**：说明该任务实际上不需要链式分解 → **终止规划流程**，告知用户"此任务适合作为单个 Skill 实现，建议直接使用 `skill-for-skills` 创建"，输出简化报告后结束
-- **子任务数 > 8**：说明分解粒度过细 → **返回 2.2 重新选择更粗粒度的分解模式**（如将管道分解改为分层分解），或建议用户分组分阶段实施
+- **子任务数 > 8**：说明分解粒度过细 → **返回 2B.2 重新选择更粗粒度的分解模式**（如将管道分解改为分层分解），或建议用户分组分阶段实施
 - **子任务数 2-8**：继续进入 Step 3
+- 注：子任务数 < 2 的情况已在 Step 2 复杂度判定阶段（2A 路径）处理，此处不再检查
 
-**2.5 输出——子任务清单（记录在分析草稿中）**
+**2B.5 输出——子任务清单（记录在分析草稿中）**
 使用以下结构化的子任务模板。字段说明中的 `[类型]` 标记遵循统一类型系统：`text`=自由文本, `enum(A|B)`=枚举, `int`=整数, `bool`=true/false, `ref`=交叉引用。
 
 ```
@@ -204,7 +306,7 @@ agent: Plan
 // ... 同上结构
 ```
 
-**2.6 隐式耦合检测**
+**2B.6 隐式耦合检测**
 检查子任务之间是否存在"看不到却相互依赖"的隐式耦合：
 
 ```
@@ -236,7 +338,7 @@ agent: Plan
 - **时序级耦合** → 在 Step 4 架构中明确串行化或加锁
 - **语义级耦合** → 建立公共术语表，统一命名
 
-**2.7 边界任务推断**
+**2B.7 边界任务推断**
 主动推断用户未提及但逻辑上必需的边界任务：
 
 ``` 
@@ -263,7 +365,7 @@ agent: Plan
 - 长时间运行的任务是否需要进度通知？
 ```
 
-**推断原则：** 如果某个边界任务对于链的正确运行是必需的，则将其作为独立子任务加入清单（返回 2.1 重新标记）。如果只是"锦上添花"的优化，则在 Step 4 架构设计的 Notes 中记录。
+**推断原则：** 如果某个边界任务对于链的正确运行是必需的，则将其作为独立子任务加入清单（返回 2B.1 重新标记）。如果只是"锦上添花"的优化，则在 Step 4 架构设计的 Notes 中记录。
 
 ### Step 3: 定义 Skill 接口契约
 在进入架构设计之前，先为每个子 Skill 定义清晰的接口契约。接口契约是 Skill 之间协作的合同，必须先于架构设计确定。
@@ -440,7 +542,7 @@ agent: Plan
 基于子任务清单和接口契约，设计完整的 Skill 链架构。
 
 **4.1 架构模式选择**
-根据 Step 2.2 选择的分解模式和 Step 3 定义的接口契约，选择合适的架构模式：
+根据 Step 2B.2 选择的分解模式和 Step 3 定义的接口契约，选择合适的架构模式：
 
 | 模式 | 结构 | 适用场景 | 优点 | 缺点 |
 |------|------|---------|------|------|
@@ -741,91 +843,21 @@ agent: Plan
 | A 使用错误版本工具 | B 拿到不符合预期的数据 → C 进一步处理 → 最终输出混合了新旧格式 | 难以定位 | 工具版本信息应写入输出元数据 |
 ```
 ### Step 6: 为每个子 Skill 编写创建规格
-对于 Step 2 中识别出的每个**需要新建**的子任务，编写一份完整的创建规格。这些规格将直接作为用户使用 `skill-for-skills` 时的输入参数。
 
-**6.1 规格模板** — 这是整套模板的核心。每个子 Skill 的规格将直接作为 `skill-for-skills` 的输入参数。模板采用三层结构：**身份层** → **接口层** → **实现层**，每层职责分离，通过 `extensions` 提供扩展能力。
+> **输出格式规范**: 子 Skill 规格文件必须严格遵循 `templates/data-exchange-format.md` **Section 四**（skills/skill-P{优先级}-{name}.md 模板）中定义的三层规格模板（身份层 → 接口层 → 实现层）和类型系统。本节中的模板为简化的内联参考，完整字段定义和类型约束以 `templates/data-exchange-format.md` 为准。
+
+对于 Step 2（2B 路径）中识别出的每个**需要新建**的子任务，编写一份完整的创建规格。这些规格将直接作为用户使用 `skill-for-skills` 时的输入参数。
+
+**6.1 规格模板** — 每个子 Skill 规格遵循 `templates/data-exchange-format.md` Section 四定义的三层结构。此处仅列出关键字段速览，完整类型定义和字段约束以 templates/data-exchange-format.md 为准：
 
 ```
-### Skill: {skill-name}              // kebab-case, 与目录名一致
-- **spec_version**: "2.0"            // 规格格式版本号
-
-// ════════════════════════════════════════════
-// 第一层：身份层 — 标识 Skill 是什么
-// ════════════════════════════════════════════
-
-- **core_function**: [text, max=200] (required)
-  // 一句话核心功能，将直接作为 SKILL.md 的 description
-  // 示例: "使用 markitdown 将 docx/pdf 文件转换为 markdown 格式"
-
-- **triggers**: [list<text>, min=3, max=8] (required)
-  // 触发关键词，将直接作为 SKILL.md description 的 Triggered by 部分
-  // 示例: ["文档转换", "转markdown", "docx转md", "pdf转md", "file conversion"]
-
-- **category**: [enum(conversion|analysis|generation|operation)] (required)
-  // 子任务类型，用于推断默认 allowed-tools
-
-// ════════════════════════════════════════════
-// 第二层：接口层 — Skill 的输入输出契约
-// ════════════════════════════════════════════
-
-- **input**:
-  - source: [enum(upstream|user|filesystem)] (required)
-  - upstream_skill: [ref(null|skill-name)] — source=upstream 时必填
-  - format: [text] (required) — 如 ".docx/.pdf"
-  - description: [text] (optional) — 人类可读的输入描述
-  - validation: [text] (optional) — 输入验证规则
-
-- **output**:
-  - artifact: [text] (required) — 如 "转换后的 markdown 文件"
-  - format: [text] (required) — 如 ".md, UTF-8"
-  - path_pattern: [path] (required) — 如 ./{skill-name}/output/{filename}.md
-  - fields: [list<text>] (optional) — 输出包含的字段列表
-  - verification: [text] (optional) — 如何验证输出正确性
-
-- **contract_refs**: [object] (optional)
-  // 引用 Step 3 的接口契约（如有）
-  - input_contract: [ref] — 输入契约 ID
-  - output_contract: [ref] — 输出契约 ID
-  - error_contract: [ref] — 错误契约 ID
-
-// ════════════════════════════════════════════
-// 第三层：实现层 — 如何创建这个 Skill
-// ════════════════════════════════════════════
-
-- **suggested_workflow**: [list<text>, min=1, max=8] (required)
-  // 给 skill-for-skills 的 Workflow 步骤建议，每条以动词开头
-  // 示例:
-  //   1. "使用 Read 工具读取用户输入的 .docx 文件路径"
-  //   2. "调用 markitdown 命令行工具将文件转为 .md 格式"
-  //   3. "将转换结果写入 ./doc-converter/output/ 目录"
-
-- **suggested_tools**: [list<enum(Read|Write|Edit|Bash|Glob|Grep|WebSearch|WebFetch)>] (required)
-  // 按子任务类型推断：
-  //   conversion → [Read, Write, Bash]
-  //   analysis   → [Read, Write, WebSearch]
-  //   generation → [Read, Write]
-  //   operation  → [Read, Write, Bash, Glob]
-
-- **dependencies**: [list<text>] (optional)
-  // 外部依赖，如 ["markitdown (pip install markitdown)"]
-
-- **priority**: [enum(P0|P1|P2)] (required)
-  // P0=必须先创建, P1=建议第二步, P2=可最后创建
-- **depends_on**: [list<ref(skill-name)>] (optional)
-  // 必须先于本 Skill 创建的 Skill 列表
-
-- **notes**: [text] (optional)
-  // 边界情况、特殊配置、测试建议
-
-// ════════════════════════════════════════════
-// 扩展层 — 为不同场景预留扩展点
-// ════════════════════════════════════════════
-
-- **extensions**: [object] (optional)
-  // 用于承载项目特定信息或未来新字段
-  // 示例: { "deploy_env": "docker", "timeout_sec": 300 }
-  // 注意: skill-for-skills 会忽略不识别的扩展字段，不会报错
+身份层: skill_name, core_function, triggers(≥3), category, tags
+接口层: input{source, format, validation}, output{artifact, format, path, fields, verification}, error_handling
+实现层: suggested_workflow(≤8), suggested_tools, dependencies, priority(P0|P1|P2), depends_on[], notes
+扩展层: extensions{} — skill-for-skills 会忽略不识别的字段
 ```
+
+**工具推断速查**（按 category）：conversion→[Read,Write,Bash] / analysis→[Read,Write,WebSearch] / generation→[Read,Write] / operation→[Read,Write,Bash,Glob]
 
 **6.2 规格编写原则**
 - **对 skill-for-skills 友好**：规格中的"核心功能"和"触发场景"应能直接作为 SKILL.md 的 description 使用
@@ -911,7 +943,117 @@ agent: Plan
 对规格中的每个"宽泛动词"（处理、管理、操作、等方式、等操作）追问一次"具体如何做？"。
 如果追问后无法给出明确的答案，说明该处存在歧义，需要精确化。
 ```
+
+### Step 6.5: 完备性检查（语义 → 逻辑 → 去重）
+
+> **这是 Step 6（编写创建规格）的强制验证关卡。** 在进入 Step 7 生成规划报告之前，必须对全部子 Skill 规格执行三轮系统性检查。**任一检查未通过则必须在当前步骤修正后再继续**——不得带着已知缺陷进入报告生成阶段。
+
+#### 6.5a. 语义检查（Semantic Validation）
+
+> **目标**: 确保每个子 Skill 的"身份层"描述与其"实现层"内容语义一致，消除表述偏差和歧义。
+
+**检查清单：**
+
+| # | 检查项 | 检查方法 | 不通过标志 | 修复方式 |
+|---|--------|---------|-----------|---------|
+| S1 | **名称与功能一致性** | 将 `skill_name` 与 `core_function` 对照：名称是否准确表达了功能？ | 名称暗示的功能范围与实际描述严重偏离（如名为 `data-cleaner` 却做了分析+可视化） | 修正名称或收紧功能描述 |
+| S2 | **触发词与功能匹配** | 逐条检查 `triggers` 列表：每个触发词是否确实对应该 Skill 的核心功能？ | 触发词暗示的功能在 Workflow 中找不到对应步骤 | 删除不匹配的触发词或补充缺失步骤 |
+| S3 | **步骤描述语义完整性** | 每条 Workflow 步骤是否包含五要素（输入/处理/输出/异常/衔接）？ | 任一步骤缺少 ≥2 个要素 | 补全缺失要素 |
+| S4 | **术语一致性** | 检查所有子 Skill 规格中使用的术语：同一概念是否使用相同名称？ | 同一概念在不同 Skill 中使用不同名词（如 Skill A 称 `output_dir`，Skill B 称 `result_path`） | 建立公共术语表，统一命名 |
+| S5 | **动词精确性** | 每个步骤的标题动词是否通过"动词对照表"检查（见 `project-to-skill/references/step-precision-rules.md` 第 1 节）？ | 使用了"处理""操作""管理"等模糊动词 | 替换为高信息量动词（读取/转换/聚合/校验/写入 等） |
+| S6 | **名词精确性** | 参数、输出物、路径中的名词是否具体可量化？ | 出现"数据""文件""结果""信息"等无类型标注的泛化名词 | 替换为类型化名词（如 `list[dict]`、`CSV 行列表`、`JSON 对象`） |
+| S7 | **条件边界语义** | 每个步骤中的条件判断是否明确了"条件是什么 + TRUE 时做什么 + FALSE 时做什么"？ | 仅有 `if` 条件但未说明 else 分支；仅有"检查格式"但未说明不通过时的行为 | 补充完整分支语义 |
+| S8 | **跨 Skill 语义连贯性** | 按数据流转顺序遍历：上游的输出描述是否与下游的输入描述在语义上对齐？ | 上游说"输出清洗后的数据"但下游说"输入原始数据文件"——描述矛盾 | 对齐上下游的描述措辞 |
+
+**语义检查流程：**
+1. 逐个子 Skill 执行 S1→S7（单项检查）
+2. 按执行顺序遍历所有 Skill 执行 S8（跨 Skill 检查）
+3. 发现问题 → 记录问题编号和 Skill 名 → 回到对应规格修正 → 修正后重过该项检查
+4. 全部通过 → 进入 6.5b 逻辑检查
+
+#### 6.5b. 逻辑检查（Logic Validation）
+
+> **目标**: 确保链中所有子 Skill 的依赖关系、执行顺序、接口契约在逻辑上自洽，消除图论层面的结构缺陷。
+
+**检查清单：**
+
+| # | 检查项 | 检查方法 | 不通过标志 | 修复方式 |
+|---|--------|---------|-----------|---------|
+| L1 | **循环依赖检测** | 构建依赖图 `G = (V, E)`，其中 V = 子 Skill 集合，E = `upstream → downstream`；DFS 检测环 | 存在 A → B → C → A 的环 | 回到 Step 2 重新分解，合并环中的 Skill 或调整数据流方向 |
+| L2 | **孤立节点检测** | 检查依赖图：是否存在既无上游依赖也无下游影响的 Skill？ | 存在孤立节点（除非该 Skill 是链的唯一入口或唯一出口） | 确认该 Skill 是否必要；不必要则移除，必要则补充上下游关系 |
+| L3 | **接口格式兼容性** | 逐对接检查：上游 `output.format` == 下游 `input.format`？ | 上游输出 `.csv` 但下游期望 `.json`——格式断裂 | 在中间插入转换 Skill，或调整某方的格式契约 |
+| L4 | **接口字段覆盖** | 逐对接检查：下游 `input.schema` 的必填字段是否全部存在于上游 `output.fields` 中？ | 下游要求 `{name, age, email}` 但上游仅输出 `{name, age}` —— 字段缺失 | 上游补充缺失字段，或下游改为可选 |
+| L5 | **执行顺序拓扑正确性** | 以数据流转表的 Step 编号为序：对每个节点 i，其上游依赖的 Step 编号是否全部 < i？ | Step 4 依赖 Step 6 的输出（上游编号大于自身） | 重新排序 Step 编号 |
+| L6 | **分支完备性** | 如果架构包含条件分支，检查所有可能路径：每个条件值是否都有对应的处理 Skill？ | `if type == "A" → X`、`else if type == "B" → Y`、缺少 `else` 分支 | 添加默认分支（fallback Skill 或错误输出） |
+| L7 | **扇出汇合完整性** | 如果架构包含扇出（并行分支），检查：所有并行分支的输出是否都能被汇合节点消费？ | B 和 C 并行但汇合节点 D 只接收 B 的输出 | 确认是否遗漏 C→D 的连线，或 C 不需要汇合（修正架构图） |
+| L8 | **错误传播路径完整性** | 对每个 Skill，检查其 `error_handling` 中的失败行为：失败后的数据/状态是否有下游处理？ | Skill A 失败时"记录错误后中止"，但 Skill B 仍然无条件等待 A 的输出 → 死锁 | 为每个上游失败场景设计下游的降级行为 |
+| L9 | **必填 vs 可选输入一致性** | 对每个 Skill，检查其声明的必填输入是否在所有可能的调用路径上都存在？ | Skill C 的 `input.validation_rules` 要求 `config_file` 必填，但上游 Skill B 的输出中 `config_file` 为可选 | 要么在上游补全、要么在下游改为可选、要么增加默认值 |
+| L10 | **Step 编号连续性** | 所有 Skill 的 Workflow 步骤编号是否从 1 开始连续递增？ | Step 1, 2, 3, 5, 6 —— 缺少 Step 4 | 修正编号 |
+
+**逻辑检查流程：**
+1. 先执行 L1（循环依赖）和 L2（孤立节点）——这是结构级缺陷，会阻塞后续所有检查
+2. L1/L2 通过后，按数据流转顺序逐对执行 L3→L9
+3. 最后执行 L10（编号连续性，最表层检查）
+4. 发现问题 → **必须回溯到对应 Step**（如循环依赖回 Step 2，契约不匹配回 Step 3，架构问题回 Step 4）修正后重新过逻辑检查
+5. 全部通过 → 进入 6.5c 去重检查
+
+#### 6.5c. 去重检查（Deduplication Validation）
+
+> **目标**: 消除 Skill 链中的功能重叠、命名冲突和冗余步骤，确保每个子 Skill 有独立的存在价值。
+
+**检查清单：**
+
+| # | 检查项 | 检查方法 | 不通过标志 | 修复方式 |
+|---|--------|---------|-----------|---------|
+| D1 | **功能重叠检测** | 对每对 Skill (A, B)，比较其 `core_function` 描述的语义重叠度 | 两个 Skill 的核心功能描述有 >50% 重叠（如 `data-validator` 和 `data-checker` 都在做输入校验） | 合并为一个 Skill，或重新划分职责边界使重叠 <20% |
+| D2 | **触发词碰撞检测** | 收集所有子 Skill 的 `triggers` 列表，检查是否存在跨 Skill 的触发词重复 | 两个 Skill 声明了相同的触发关键词 | 重新分配触发词；如果确实共享触发场景，拆分为独立的入口 Skill + 路由逻辑 |
+| D3 | **输出路径冲突检测** | 收集所有子 Skill 的 `output.path`，检查是否存在写入同一路径的情况 | 两个 Skill 输出到同一个文件路径（如都写入 `./output/result.json`） | 为每个 Skill 分配独立输出目录 |
+| D4 | **步骤级冗余检测** | 对每个子 Skill 内部：检查 Workflow 步骤是否存在语义重复 | Step 2 "校验输入格式" 和 Step 4 "再次检查数据格式"——重复的校验逻辑 | 合并重复步骤，仅保留一次校验 |
+| D5 | **跨 Skill 步骤冗余检测** | 沿数据流转路径检查：是否存在多个 Skill 对同一数据执行了相同的转换？ | Skill A 做了"去除空行"，Skill C 也做了"去除空行" | 确定该操作的最佳执行位置，移除其他位置的重复操作 |
+| D6 | **依赖传递冗余** | 检查依赖关系：是否存在 A → B → C 但实际 A 的输出可以直接给 C（B 是冗余中间层）？ | B 的唯一功能是透传或做微小的格式调整（已有标准工具可替代） | 移除冗余 Skill B，将 A 的输出直接接入 C |
+| D7 | **Skill 名称唯一性** | 所有子 Skill 的 `skill_name` 是否互不相同？ | 两个 Skill 名称相同或仅靠大小写/连字符区分（如 `data-cleaner` vs `data_cleaner`） | 重命名冲突的 Skill |
+| D8 | **配置/常量重复定义** | 检查多个 Skill 的 `dependencies`、`suggested_tools`、`extensions` 中是否存在完全相同的配置块 | 3 个 Skill 都定义了相同的 `timeout=30`、`retry_count=3` | 提取为链级公共配置，各 Skill 引用而非重复定义 |
+
+**去重检查流程：**
+1. 先执行 D7（名称唯一性）和 D3（路径冲突）——纯文本比对，最快
+2. 再执行 D1（功能重叠）和 D2（触发词碰撞）——需要语义判断
+3. 然后执行 D4（步骤级）→ D5（跨 Skill 步骤）→ D6（依赖传递冗余）
+4. 最后执行 D8（配置重复）
+5. 发现问题：
+   - D1 功能重叠 → 合并或重新划分边界，**必须回到 Step 2** 修正分解
+   - D2 触发词碰撞 → 重新分配触发词
+   - D3/D7 命名/路径冲突 → 直接修正
+   - D4/D5 步骤冗余 → 合并重复步骤
+   - D6 依赖传递冗余 → 回到 Step 4 简化架构
+6. 全部通过 → 完备性检查通过，进入 Step 7
+
+#### 6.5d. 检查报告输出
+
+三轮检查完成后，输出内部验证摘要（不写入用户的规划报告，仅作为后续步骤的约束参数）：
+
+```
+[Step 6.5 完备性检查摘要]
+- 语义检查：通过 / 发现问题 X 处（S1:2, S4:1, S7:1）→ 已全部修正
+- 逻辑检查：通过 / 发现问题 Y 处（L3:1, L6:1）→ 已回溯 Step 3/Step 4 修正
+- 去重检查：通过 / 发现问题 Z 处（D1:1, D2:2）→ 已合并 Skill 或重新分配触发词
+- 残留风险：无 / [列出无法在本轮解决的已知问题]
+- 进入 Step 7：是 / 否（仍有未解决的 P0 问题）
+```
+
+若残留风险中包含 P0 级问题（如循环依赖无法通过合并打破、格式断裂无法通过插入转换 Skill 修复），则**终止规划流程**，向用户输出诊断报告并建议人工介入。
+
 ### Step 7: 生成 Skill 链规划报告
+
+> **输出格式规范**: 规划报告的全部 6 类输出文件必须严格遵循 `templates/data-exchange-format.md` 中定义的模板：
+> - `chain-overview.md` → **Section 三**（依赖矩阵 + 数据流转表 + 质量属性）
+> - `risk-register.md` → **Section 五**（结构化风险登记表）
+> - `skills/skill-P*-*.md` → **Section 四**（三层规格模板，由 Step 6 生成）
+> - `usage-guide.md` → **Section 六**（创建/组合/验证/故障排除指南）
+> - `implementation-roadmap.md` → **Section 七**（分阶段实施路线图）
+> - `rollback-guide.md` → **Section 八**（故障恢复指南）
+>
+> 所有文件必须包含符合规范的 YAML frontmatter（`schema_version`、`generated_at`、`chain_name` 等），字段类型标注遵循 `templates/data-exchange-format.md` Section 二的类型系统。本节中的模板为简化的内联参考，完整字段定义以 `templates/data-exchange-format.md` 为准。
+
 将以上所有分析结果整理为一份完整的规划报告，写入 `skill-chain-planner/plans/<task-name>/` 目录。**注意：在生成报告过程中，如果发现步骤之间存在逻辑断裂、接口不匹配或架构不合理，应回溯到对应 Step 进行修正后再继续生成。**
 
 支持的反馈循环：
@@ -934,326 +1076,27 @@ plans/
 ```
 
 #### chain-overview.md 内容
-文件元数据头 + 架构总览。采用 YAML 头 + Markdown 正文结构：
-
-```markdown
----
-plan_name: "{task-name}"
-plan_version: "1.0.0"
-generated_at: "{YYYY-MM-DD}"
-schema_version: "1.0"
-source: "skill-chain-planner v1.3"
-extensions: {}
----
-
-# {Task Name} — Skill 链架构总览
-
-## 链路全景
-- **子 Skill 总数**: [int] (required)
-- **架构模式**: [enum(pipeline|fanout|layered|orchestrator|chain|cqrs|pubsub)]
-- **执行顺序类型**: [enum(serial|parallel|hybrid|conditional)]
-- **预估总工作量**: [text] (optional)
-
-## 执行顺序图
-```text
-// 文字版架构图
-[Skill A] → [Skill B] → [Skill C]
-     ↘              ↗
-  [Skill D] —— ———┘
-```
-
-## 依赖关系矩阵
-| Skill | 类型 | 优先级 | 上游依赖 | 下游影响 | 状态 |
-|-------|------|--------|---------|---------|------|
-| {name} | {type} | P0/P1/P2 | {ref} | {ref} | {new/existing/upgrade} |
-
-## 数据流转总览
-| Step | Skill | 输入来源 | 输出路径 | 格式 | 协议 |
-|------|-------|---------|---------|------|------|
-| 1 | {name} | {ref} | {path} | {fmt} | file/arg/mixed |
-
-## 接口契约概要
-引用 Step 3 的关键契约，每个 Skill 列出：
-- **输入**: 来源、格式、校验规则
-- **输出**: 路径、格式、关键字段
-- **错误处理**: 三类场景的处理方式
-
-## 质量属性
-- **幂等性**: full|conditional|none
-- **可观测性**: full|partial|manual
-- **最大并行数**: int
-- **恢复策略**: restart|skip|fallback|compensate
-
-## 扩展信息
-```yaml
-extensions:
-  # 项目特定信息，如部署环境要求、性能基线等
-```
+> 完整模板见 `templates/data-exchange-format.md` **Section 三**。必需章节：YAML frontmatter(`schema_version`,`generated_at`,`chain_name`) → 链摘要 → 架构模式 → 执行顺序图 → 依赖关系矩阵(含 status 列) → 数据流转表(Step/Skill/输入来源/输出路径/格式/协议) → 复用决策 → 质量属性(幂等性/可观测性/恢复策略)
 ```
 
 #### risk-register.md 内容
-结构化的风险登记表，每个风险记录独立。文件头 + 风险列表：
-
-```markdown
----
-plan_name: "{task-name}"
-risk_count: {int}
-generated_at: "{YYYY-MM-DD}"
-schema_version: "1.0"
-extensions: {}
----
-
-# 风险登记表
-
-## 风险汇总
-| 严重度 | 数量 |
-|--------|------|
-| Critical | {int} |
-| High | {int} |
-| Medium | {int} |
-| Low | {int} |
-
-## 风险明细
-
-### {risk-1}: {risk-name}
-- **类别**: dependency|data|format|cascade|resource|external|silent
-- **关联 Skill**: {skill-name}
-- **场景**: {text}
-- **概率**: high|medium|low
-- **影响**: severe|moderate|minor
-- **风险评分**: critical|high|medium|low
-- **应对方案**:
-  - 降级: {text}
-  - 重试: {text}
-  - 替代: {text}
-  - 通知用户: {text}
-- **连锁分析**: {text} (optional)
-- **人工干预点**: {bool}
-
-### {risk-2}: {risk-name}
-// ...
-
-## 扩展信息
-```yaml
-extensions: {}
-```
+> 完整模板见 `templates/data-exchange-format.md` **Section 五**。必需章节：YAML frontmatter → 风险汇总表(按严重度计数) → 风险明细(每条含:类别/关联Skill/场景/概率/影响/评分/应对方案/连锁分析/人工干预点)
 ```
 
 #### skills/<优先级>-<名称>.md 内容
-每份文件对应 Step 6 中编写的一份创建规格。文件名含优先级标记：`skill-P0-{name}.md`、`skill-P1-{name}.md`。
-
-每份规格文件包含完整的 YAML 头 + 三层规格体：
-
-```markdown
----
-skill_name: "{skill-name}"
-spec_version: "2.0"
-priority: "P0|P1|P2"
-depends_on: [{ref-list}]
-generated_at: "{YYYY-MM-DD}"
-extensions: {}
----
-
-# {Skill Name}
-
-## 身份层
-- **core_function**: {text, max=200}
-- **triggers**: [{list, min=3, max=8}]
-- **category**: conversion|analysis|generation|operation
-
-## 接口层
-- **input**: {source, format, validation}
-- **output**: {artifact, format, path, fields}
-- **contract_refs**: {input, output, error}
-
-## 实现层
-- **suggested_workflow**: [{steps}]
-- **suggested_tools**: [{tools}]
-- **dependencies**: [{list}]
-- **notes**: {text}
-
-## 扩展信息
-```yaml
-extensions: {}
-```
+> 完整模板见 `templates/data-exchange-format.md` **Section 四**。文件命名: `skill-P{0|1|2}-{skill-name}.md`。YAML frontmatter(`spec_schema:2.0`,`skill_name`,`priority`,`status`,`upstream`,`downstream`) + 三层规格体(身份层→接口层→实现层)。Step 6 已生成完整规格，此处直接引用。
 ```
 
 #### usage-guide.md 内容
-用户实际操作指南。包含 YAML 元数据头，内容分创建、组合、验证、故障排除四部分：
-
-```markdown
----
-plan_name: "{task-name}"
-guide_version: "1.0"
-total_skills: {int}
-creation_order: [{P0-list}] → [{P1-list}] → [{P2-list}]
-generated_at: "{YYYY-MM-DD}"
-extensions: {}
----
-
-# 使用指南
-
-## 创建步骤
-按依赖顺序创建所有子 Skill：
-
-### Phase 1: 核心链路 (P0)
-| 顺序 | Skill | 规格文件 | 预估工作量 |
-|------|-------|---------|-----------|
-| 1 | {name} | skills/skill-P0-{name}.md | {text} |
-| 2 | {name} | skills/skill-P0-{name}.md | {text} |
-
-操作：打开 Claude Code → 输入 `/skill-for-skills` → 粘贴对应规格文件内容
-
-### Phase 2: 增强功能 (P1)
-| 顺序 | Skill | 规格文件 | 预估工作量 |
-|------|-------|---------|-----------|
-| 3 | {name} | skills/skill-P1-{name}.md | {text} |
-
-### Phase 3: 优化完善 (P2)
-...
-
-## 组合使用
-```
-# 严格串行调用
-/user {skill-A} <input>     # Step 1: 转换
-/user {skill-B} <arg>       # Step 2: 处理（wait Step 1 done）
-/user {skill-C} <arg>       # Step 3: 生成（wait Step 2 done）
-```
-
-## 验证方法
-1. **单元测试** — 每个 Skill 单独测试，验证其输出符合契约格式
-2. **集成测试** — 按链式顺序逐步串联 2-3 个 Skill 测试
-3. **端到端测试** — 全链完整执行，验证最终产出
-
-## 故障排除
-| 症状 | 可能原因 | 解决步骤 |
-|------|---------|---------|
-| Skill 创建失败 | 输入格式不匹配 | 检查上游输出格式与当前 Skill 输入契约是否一致 |
-| 输出不符合预期 | 依赖未安装 | 检查 dependencies 并安装 |
-| 链中断 | 某步超时 | 参考 rollback-guide.md 恢复 |
-
-## 扩展信息
-```yaml
-extensions: {}
-```
+> 完整模板见 `templates/data-exchange-format.md` **Section 六**。四部分结构：前置准备 → 创建步骤(按 P0→P1→P2 分阶段) → 组合使用(含调用顺序示例) → 验证方法(单元/集成/端到端) → 故障排除表
 ```
 
 #### implementation-roadmap.md 内容
-分阶段实施路线图，含三阶段模板和里程碑标记：
-
-```markdown
----
-plan_name: "{task-name}"
-roadmap_version: "1.0"
-total_phases: 3
-generated_at: "{YYYY-MM-DD}"
-extensions: {}
----
-
-# 实施路线图
-
-## Phase 1: 核心链路 (P0) — [预估工作量: {text}]
-**目标**: 核心流程可走通
-
-| Skill | 类型 | 创建顺序 | 里程碑 |
-|-------|------|---------|--------|
-| {name} | {type} | 1st | ✅ P0 全部创建完成 |
-| {name} | {type} | 2nd | ✅ 核心链路集成测试通过 |
-
-**验证标准**:
-- [ ] P0 所有 Skill 已创建
-- [ ] 核心链路可完整执行
-- [ ] 关键路径已覆盖端到端
-
-## Phase 2: 增强功能 (P1) — [预估工作量: {text}]
-**目标**: 完整流程可走通
-
-| Skill | 类型 | 创建顺序 | 里程碑 |
-|-------|------|---------|--------|
-| {name} | {type} | 3rd | ✅ P1 全部创建完成 |
-
-**验证标准**:
-- [ ] 所有 P0+P1 Skill 已创建
-- [ ] 完整链路可执行
-- [ ] 异常路径已初步处理
-
-## Phase 3: 优化完善 (P2) — [预估工作量: {text}]
-**目标**: 异常路径得到覆盖
-
-| Skill | 类型 | 创建顺序 | 里程碑 |
-|-------|------|---------|--------|
-| {name} | {type} | 4th | ✅ P2 全部创建完成 |
-
-**验证标准**:
-- [ ] 所有 Skill 已创建
-- [ ] 回滚/降级方案已验证
-- [ ] 风险登记表中的所有风险已覆盖
-
-## 扩展信息
-```yaml
-extensions:
-  custom_phases: []
-```
+> 完整模板见 `templates/data-exchange-format.md` **Section 七**。三阶段结构(Phase 1→3)：每阶段含目标/里程碑/状态/验证标准 + Skill 分配表
 ```
 
 #### rollback-guide.md 内容
-结构化的回滚指南，按故障场景分类：
-
-```markdown
----
-plan_name: "{task-name}"
-rollback_version: "1.0"
-total_scenarios: 3
-generated_at: "{YYYY-MM-DD}"
-extensions: {}
----
-
-# 回滚指南
-
-## 场景 1: 单个 Skill 创建后不符合预期
-
-### 诊断步骤
-1. [text] — 检查该 Skill 的输入数据是否符合契约定义的格式
-2. [text] — 检查该 Skill 的依赖是否全部安装
-3. [text] — 检查上游 Skill 的输出是否已被更新（接口是否变更）
-
-### 修复选项
-| 选项 | 操作 | 适用条件 |
-|------|------|---------|
-| 升级 | 使用 `/skill-for-skills` 的升级功能修改 | 接口小幅变更 |
-| 重建 | 删除后按规格重新创建 | 接口大幅变更 |
-| 降级 | 从链中临时移除该 Skill | 非关键路径 |
-
-## 场景 2: 链执行中某步失败
-
-### 恢复步骤
-1. **定位**：从错误信息中获取失败的 Step 编号和 Skill 名称
-2. **快照**：从 `intermediate/` 目录获取失败步骤的输入快照
-3. **修复**：修正输入数据或配置
-4. **重试**：从失败步骤重新执行，无需从头开始
-
-### 注意事项
-- 确保修复后的输入与失败步骤的输入契约完全一致
-- 如果失败步骤修改了共享文件，检查是否需要重置
-
-## 场景 3: 全链结果不符合需求
-
-### 根因分析
-- [ ] 回顾 Step 1 的 5W1H+C 分析记录
-- [ ] 检查 Step 5 风险登记表中的预警项是否被触发
-- [ ] 验证 Step 8.4 假设清单中的假设是否成立
-
-### 重规划流程
-1. 保留 `intermediate/` 目录中的所有中间数据
-2. 调整本规划文档中的对应规格
-3. 重新使用 `/skill-for-skills` 生成修改后的 Skill
-4. 复用未修改的中间数据，减少重复工作
-
-## 扩展信息
-```yaml
-extensions:
-  custom_scenarios: []
-```
+> 完整模板见 `templates/data-exchange-format.md` **Section 八**。三类故障场景：①单 Skill 创建失败(诊断→修复选项表) ②链执行中某步失败(定位→快照→修复→重试) ③全链结果不符合需求(根因分析→重规划流程)
 ```
 
 ### Step 8: 输出规划总结
@@ -1372,7 +1215,7 @@ extensions: {}
 - **Always** 遵循 Step 1 的 5W1H+C 框架进行系统性任务分析，不跳步
 - **Always** 在 5W1H+C 完成后执行隐含假设验证（Step 1.10）和可行性预判（Step 1.11），确认任务可行且假设合理后再进入分解
 - **Always** 遵循单一职责原则分解子任务，每个子 Skill 只做一件事
-- **Always** 在分解完成后检查隐式耦合（Step 2.6）和推断必要的边界任务（Step 2.7）
+- **Always** 在分解完成后检查隐式耦合（Step 2B.6）和推断必要的边界任务（Step 2B.7）
 - **Always** 为每个子 Skill 定义清晰的输入/输出/错误接口契约（Step 3）
 - **Always** 在契约中识别隐式状态传递（Step 3.6）和静默降级场景（Step 3.7），将它们显式化
 - **Always** 先进行接口一致性校验（Step 3.4）和循环依赖检测，再进入架构设计
@@ -1515,6 +1358,7 @@ extensions: {}
 
 ## Notes
 - 本 Skill 只产生规划报告，定位在 `skill-chain-planner/plans/<task-name>/` 下
+- **所有输出文件的格式以 `templates/data-exchange-format.md` 为权威参考**——它是 Planner 与 Executor 之间的显式数据契约。修改输出格式时，必须同步更新 `templates/data-exchange-format.md`
 - 用户拿到规划报告后，需按依赖顺序依次使用 `skill-for-skills` 创建各子 Skill
 - 创建完成后，用户按照 `usage-guide.md` 中的说明组合调用各 Skill
 - 如果用户对某个子 Skill 的规格不满意，可以调整对应规格文件后重新交给 `skill-for-skills`

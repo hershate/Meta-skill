@@ -7,9 +7,10 @@ description: >-
   by priority and dependency. Triggered by: "执行skill链", "创建skill链",
   "执行链规划", "批量创建skill", "chain executor", "执行规划", "递归生成skill",
   "按照规划创建", "deploy chain", "execute plan", "create chain skills".
-version: 1.0.0
+version: 1.2.0
 metadata:
   tags: chain, orchestration, skill-creation, pipeline, executor
+  output_template: templates/data-exchange-format.md
 allowed-tools: Read Glob Skill
 ---
 
@@ -34,6 +35,9 @@ allowed-tools: Read Glob Skill
 ## Workflow / Steps
 
 ### Step 1: 定位并读取链规划目录
+
+> **输入格式规范**: Planner 输出的规划目录必须遵循 `templates/data-exchange-format.md` 中定义的数据交换格式。本节为内联速览，完整目录结构、文件格式和字段定义以模板文件为准。
+
 读取用户指定的 `skill-chain-planner` 输出目录（以下称为 `$PLAN_DIR`），确认目录结构完整。
 
 **预期目录结构：**
@@ -53,6 +57,9 @@ $PLAN_DIR/
 - 如果目录结构完整，记录 `$PLAN_DIR` 路径，进入 Step 2
 
 ### Step 2: 解析链架构
+
+> `chain-overview.md` 的完整格式定义见 `templates/data-exchange-format.md` **Section 三**。Executor 按列名定位字段（不依赖列顺序），必需列: Skill/优先级/上游依赖/状态。
+
 使用 `Read` 工具读取 `$PLAN_DIR/chain-overview.md`，提取以下关键信息：
 
 1. **依赖关系矩阵** — 解析表格，提取每个 Skill 的：名称、类型、优先级、上游依赖、下游影响、**状态**（需新建 / 已有 / 需升级）
@@ -112,48 +119,121 @@ $PLAN_DIR/
 
 **对每个子 Skill 执行以下子步骤：**
 
-**5.1 读取规格文件**
-读取 `$PLAN_DIR/skills/skill-P{优先级}-{name}.md`，获取该子 Skill 的完整创建规格。
+**5.1 读取并预验证规格文件**
 
-**5.2 调用 skill-for-skills**
-使用 `Skill` 工具调用 `skill-for-skills` 技能，将规格文件的**完整内容**作为参数传递：
+> 子 Skill 规格文件格式见 `templates/data-exchange-format.md` **Section 四**（三层规格模板：身份层→接口层→实现层）。
+
+读取 `$PLAN_DIR/skills/skill-P{优先级}-{name}.md`，获取该子 Skill 的完整创建规格。读取后执行**轻量预验证**——不解析完整语义，仅检查格式骨架：
+
+| 检查项 | 不通过标志 | 处理 |
+|--------|-----------|------|
+| YAML frontmatter 存在 | 文件不以 `---` 开头 | ❌ 标记为 `SPEC_ERROR`，报告 "规格文件缺少 frontmatter" |
+| `skill_name` 字段存在 | 无此字段或值为空 | ❌ 标记为 `SPEC_ERROR`，报告 "规格文件未声明 skill_name" |
+| `priority` 字段存在 | 无此字段 | ⚠️ 从文件名推断（`skill-P0-*` → P0）并补充 |
+| 身份层/接口层/实现层标题存在 | 缺少任一层标题 | ⚠️ 继续执行，但记录警告 |
+
+> **原则**: 预验证只拦截 skill-for-skills 无法自行处理的致命格式缺陷。语义完整性由 skill-for-skills 内部判断。
+
+**5.2 调用 skill-for-skills（显式工具调用）**
+
+构造调用参数后，使用 `run_skill` 工具**显式调用** `skill-for-skills`。这不是伪代码——是 Executor 对 skill-for-skills 的实际工具调用：
 
 ```
-Skill({skill: "skill-for-skills", args: "<规格文件完整内容>"})
+run_skill({name: "skill-for-skills", arguments: "<构造的完整参数>"})
 ```
 
-调用后等待 `skill-for-skills` 完成执行。
+**参数构造规则：**
 
-**关键：** 必须传递规格文件的**完整原始内容**（包括 YAML frontmatter 和正文），不要做任何修改、截断或重新格式化。`skill-for-skills` 会自行解析规格并生成相应的 SKILL.md。
+规格文件的完整原始内容必须保留。为了帮助 `skill-for-skills` 正确识别三层规格格式，在原始内容前**附加格式提示头**：
 
-**注意：** `skill-for-skills` 执行完成后会输出其生成报告。读取该报告中的以下信息并记录：
-- 是否成功（成功/失败）
-- 生成的 Skill 名称
-- 输出路径
+```
+arguments = "请根据以下 skill-chain-planner 生成的三层规格（身份层→接口层→实现层）创建 Skill。规格中的 core_function 作为 description，triggers 作为触发关键词，suggested_workflow 作为 Workflow 步骤，suggested_tools 作为 allowed-tools。完整的 frontmatter 规范和体量控制遵循 sum.md。\n\n--- 以下是三层规格文件 ---\n\n" + <规格文件完整原始内容>
+```
 
-**5.3 验证生成结果**
-创建完成后，验证：
+**调用规则：**
+- `<规格文件完整原始内容>` **不做任何修改、截断或重新格式化**——完整保留 YAML frontmatter + Markdown 正文
+- 格式提示头仅提供上下文，不修改规格数据本身
+- 如果预验证阶段标记了警告（如缺少某层标题），在提示头末尾追加提示
+- `run_skill` 是**阻塞调用**——调用后自动等待 `skill-for-skills` 完成执行并返回结果
+
+**5.2a 处理 skill-for-skills 返回结果**
+
+`run_skill` 返回后（skill-for-skills 已执行完毕），从其输出中提取：
+
+| 提取项 | 来源 | 用途 |
+|--------|------|------|
+| 成功/失败 | skill-for-skills 的 Step 10 报告 | 判断是否进入 5.3 验证还是 5.4 失败处理 |
+| 生成的 Skill 名称 | 报告中的 "名称" 字段 | 与 `skill_name` 对比，不一致则标记警告 |
+| 输出路径 | 报告中的 "路径" 字段 | 确认路径在项目根目录下 |
+| SKILL.md 路径 | 报告中的目录结构 | 用于 5.3 L1 文件存在性检查 |
+
+**关键：** `run_skill` 返回的是 skill-for-skills 的完整执行结果（包括其 Step 10 报告）。Executor 不需要额外调用 `Read` 来获取结果——直接从返回值中提取上述信息。
+
+**5.3 验证生成结果与规格一致性**
+
+创建完成后，分两层验证：
+
+**L1 — 文件存在性检查（快速）：**
 - `./<skill-name>/SKILL.md` 是否存在
 - `./<skill-name>/README.md` 是否存在
 
-**5.4 处理失败**
-如果 `skill-for-skills` 调用失败或生成的 SKILL.md 不存在：
-1. 记录失败信息（哪个 Skill、失败原因）
-2. **暂停当前流程，向用户报告失败详情**
-3. 询问用户：修复后重试 / 跳过该 Skill 继续 / 终止执行
-4. 根据用户选择继续
+**L2 — 规格符合性抽查（抽样，检查关键字段）：**
+使用 `Read` 读取生成的 SKILL.md frontmatter，对照规格文件抽查：
+
+| 抽查项 | 规格来源 | 检查方法 |
+|--------|---------|---------|
+| `name` | 规格的 `skill_name` | 是否与规格一致 |
+| 触发词 | 规格身份层的 `triggers` | 至少 2 个触发词出现在 `description` 中 |
+| `allowed-tools` | 规格实现层的 `suggested_tools` | 工具列表是否包含规格建议的核心工具 |
+
+> L2 抽查不通过不中断流程——标记为 `VALIDATION_WARNING` 并在最终报告中列出，供用户手动检查。
+
+**5.4 分级处理失败**
+
+根据失败阶段采用不同策略：
+
+| 失败类型 | 发生在 | 典型原因 | 处理策略 |
+|---------|--------|---------|---------|
+| `SPEC_ERROR` | 5.1 预验证 | 规格文件缺少必需字段 | **暂停**，报告具体缺失字段 → 建议回到 Planner 修正规格 → 询问: 重试/跳过/终止 |
+| `GENERATION_ERROR` | 5.2 skill-for-skills | skill-for-skills 内部异常 | **暂停**，报告原始错误信息 → 可能是临时故障，建议直接重试 → 询问: 重试(最多3次)/跳过/终止 |
+| `OUTPUT_MISSING` | 5.3 L1 检查 | SKILL.md/README.md 未生成 | **暂停**，检查 skill-for-skills 输出日志 → 询问: 重试/跳过/终止 |
+| `VALIDATION_WARNING` | 5.3 L2 抽查 | 输出与规格有差异 | **不暂停**，记录到最终报告 → 不影响后续 Skill 创建 |
+
+**暂停处理模板：**
+```
+❌ [{失败类型}] {skill-name} 创建失败
+失败阶段：{5.1/5.2/5.3}
+原因：{具体原因}
+建议：{操作建议}
+
+请选择：
+[1] 修复后重试
+[2] 跳过，继续处理后续 Skill  
+[3] 终止执行
+```
 
 **5.5 循环继续**
 当前 Skill 创建成功后，进入下一个 Skill 的创建（回到 5.1），直到所有 `ACTION_CREATE` 的 Skill 处理完毕。
 
 ### Step 6: 处理需升级的 Skill（如有）
+
+> 升级规格文件遵循与创建规格相同的 `templates/data-exchange-format.md` **Section 四** 格式。`状态: 需升级` 的 Skill 在身份层中应注明变更范围。
+
 对标记为 `ACTION_UPGRADE` 的 Skill：
 1. 读取 `$PLAN_DIR/skills/` 中对应的升级规格
-2. 使用 `Skill` 工具调用 `skill-for-skills`，传递升级规格
-3. 验证升级后的 SKILL.md 和 README.md
-4. 报告升级结果
+2. 执行 5.1 预验证（同上）
+3. 使用 `run_skill` 工具调用 `skill-for-skills`，参数构造同 5.2，提示头替换为 `"请根据以下三层规格**升级**已有 Skill："`：
+   ```
+   run_skill({name: "skill-for-skills", arguments: "请根据以下三层规格升级已有 Skill：...\n\n--- 以下是三层规格文件 ---\n\n" + <升级规格完整原始内容>})
+   ```
+4. 执行 5.3 验证（同上）
+5. 升级失败时执行 5.4 分级处理（同上）
+6. 报告升级结果
 
 ### Step 7: 完整性验证
+
+> 接口一致性检查参照 `templates/data-exchange-format.md` Section 三的数据流转表（Step/Skill/输入来源/输出路径/格式/协议）和 Section 四的接口契约（输入/输出/错误契约）。
+
 所有 Skill 创建/验证/升级完成后，执行最终检查：
 
 1. **全部创建检查**：对照 `chain-overview.md` 的依赖关系矩阵，确认每个 Skill 的状态
@@ -229,7 +309,7 @@ Skill({skill: "skill-for-skills", args: "<规格文件完整内容>"})
 2. 解析出子 Skill：pdf-converter(P0,需新建), outline-extractor(P0,已有), self-study-guide(P0,已有)
 3. 排序：创建 pdf-converter → 验证 outline-extractor → 验证 self-study-guide
 4. 输出执行计划给用户确认
-5. 用户确认后，调用 `Skill({skill: "skill-for-skills", args: "<spec-file-content>"})` 创建 pdf-converter
+5. 用户确认后，使用 `run_skill({name: "skill-for-skills", arguments: "<构造的完整参数>"})` 创建 pdf-converter
 6. 验证 pdf-converter 创建成功
 7. 验证 outline-extractor 的 SKILL.md 存在
 8. 验证 self-study-guide 的 SKILL.md 存在
@@ -272,7 +352,7 @@ Skill({skill: "skill-for-skills", args: "<规格文件完整内容>"})
 
 ## Notes
 - 本 Skill 依赖 `skill-for-skills` 的可用性——如果该 Skill 未注册，本 Skill 无法工作
-- 本 Skill 依赖 `skill-chain-planner` 输出的标准格式——如果规划目录格式不符合预期，解析将失败
+- 本 Skill 依赖 `skill-chain-planner` 输出的标准格式——该格式由 `templates/data-exchange-format.md` 定义。如果规划目录格式不符合预期，解析将失败
 - 所有新建的 Skill 输出在项目根目录下的 `<skill-name>/` 文件夹中，需要用户手动复制到 `.claude/skills/` 完成注册
 - 对于需要升级的已有 Skill，升级会直接修改原 Skill 的文件，无需重新注册
 - 如果规划目录中包含不在依赖关系矩阵中的额外文件（如 `rollback-guide.md`），忽略这些文件，不影响主流程
