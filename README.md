@@ -1,12 +1,15 @@
 # Meta-Skills — 元技能集合
 
-一套用于**创建、编排、优化和管理** AI 编码助手技能（Skill）的元技能（Meta-Skill）工具链。这些技能并非 Claude Code 专属——它们在 **esengine\DeepSeek-Reasonix** 上同样完全可用。
+一套用于**创建、编排、优化和管理** AI 编码助手技能（Skill）的元技能（Meta-Skill）工具链。
+这些技能**并非 Claude Code 专属**——它们在 Reasonix 上同样完全可用。
 
 ---
 
 ## 什么是「元技能」？
 
 普通 Skill 教 AI 做某件事（搜论文、写报告、审代码）。元技能本身也是 Skill，但它的任务是**生成别的 Skill**——分析需求、逆向代码库、拆解复杂任务，最终产出可复用的 `SKILL.md`。
+
+本仓库包含 **5 个元技能**，覆盖从「有一个想法」到「得到一份可用的 SKILL.md」的完整链路。
 
 ---
 
@@ -15,32 +18,32 @@
 ```
 .
 ├── skill-for-skills/          # 核心引擎 — 根据需求描述生成/升级 Skill
-│   ├── SKILL.md               # 元技能主文件（三条路径：CREATE / UPGRADE / UPDATE_SUM）
-│   ├── sum.md                 # Skill 编写规范参考手册（被所有生成流程引用）
+│   ├── SKILL.md               # 元技能主文件（CREATE / UPGRADE / UPDATE_SUM 三条路径）
+│   ├── sum.md                 # Skill 编写规范参考手册
 │   └── README.md
 │
-├── project-to-skill/          # 逆向分析 — 从现有代码库提取架构并转化为 Skill
+├── project-to-skill/          # 逆向分析 — 从代码库提取架构并转化为 Skill
 │   ├── SKILL.md               # 技能主文件（v2.1.0，含过程式忠实保证）
 │   ├── references/
-│   │   └── step-precision-rules.md   # 步骤精度参考手册（动词/名词速查、验证单）
-│   ├── scripts/               # 可执行脚本（预留）
-│   ├── templates/             # 模板文件（预留）
+│   │   └── step-precision-rules.md
+│   ├── scripts/               # 预留
+│   ├── templates/             # 预留
 │   └── README.md
 │
 ├── skill-chain-planner/       # 任务分解 — 将复杂任务规划为多 Skill 协作链
-│   ├── SKILL.md               # 技能主文件（v1.3.0，含三层接口契约 + 风险分析）
-│   ├── references/            # 补充文档（预留）
-│   ├── scripts/               # 可执行脚本（预留）
-│   ├── templates/             # 模板文件（预留）
+│   ├── SKILL.md               # 技能主文件（v1.3.0）
+│   ├── references/            # 预留
+│   ├── scripts/               # 预留
+│   ├── templates/             # 预留
 │   └── README.md
 │
-├── skill-chain-executor/      # 链执行器 — 按规划批量调用 skill-for-skills 创建子 Skill
+├── skill-chain-executor/      # 链执行器 — 按规划批量委托 skill-for-skills 创建子 Skill
 │   ├── SKILL.md               # 技能主文件（v1.0.0）
 │   └── README.md
 │
 ├── prompt-optimizer/          # 提示词优化 — 12 维定量分析 + 14 种反模式检测
 │   ├── SKILL.md               # 技能主文件（v3.0.0）
-│   ├── references/            # 补充文档（预留）
+│   ├── references/            # 预留
 │   └── README.md
 │
 ├── LICENSE                    # Apache License 2.0
@@ -56,18 +59,20 @@
 | **skill-for-skills** | v1.0.0 | ✅ **可用** | 完全可用，后续仍会持续优化 |
 | **prompt-optimizer** | v3.0.0 | ✅ **可用** | 完全可用 |
 | **project-to-skill** | v2.1.0 | 🚧 **测试中** | 仍在测试阶段，**实际不可用** |
-| **skill-chain-planner** | v1.3.0 | ⚠️ **已知问题** | 与 skill-chain-executor 的协作问题尚未解决 |
-| **skill-chain-executor** | v1.0.0 | ⚠️ **已知问题** | 与 skill-chain-planner 的协作问题尚未解决 |
+| **skill-chain-planner** | v1.3.0 | ⚠️ **已知问题** | 与 skill-chain-executor 的协作问题初步解决可运行，但是仍需测试 |
+| **skill-chain-executor** | v1.0.0 | ⚠️ **已知问题** | 与 skill-chain-planner 的协作问题初步解决可运行，但仍需测试 |
 
-## 五个技能速览
+---
 
-| 技能 | 版本 | 一句话 | 运行模式 | 触发词示例 |
-|------|------|--------|---------|-----------|
-| **skill-for-skills** | v1.0.0 | ✅ 根据自然语言描述自动生成符合规范的 SKILL.md（完全可用，后续仍会持续优化） | 内联 | "编写skill" "创建skill" "升级skill" |
-| **project-to-skill** | v2.1.0 | 🚧 分析现有代码库，从 6 维度评估适用性后提取架构并生成 Skill（测试中，不可用） | `context: fork` 隔离 | "项目转skill" "codebase to skill" |
-| **skill-chain-planner** | v1.3.0 | ⚠️ 用 5W1H+C 框架将复杂任务拆分为多 Skill 链（与 executor 协作问题未解决） | `context: fork` + `agent: Plan` | "任务分解" "skill链规划" |
-| **skill-chain-executor** | v1.0.0 | ⚠️ 读取 planner 的规划输出，委托 skill-for-skills 逐个创建（与 planner 协作问题未解决） | 内联 | "执行skill链" "批量创建skill" |
-| **prompt-optimizer** | v3.0.0 | ✅ 12 维度定量评分（0-5）+ 14 种反模式检测 + 回归验证的工业级提示词优化 | 内联 | "优化提示词" "prompt engineering" |
+## 技能速览
+
+| 技能 | 版本 | 一句话描述 | 运行模式 | 触发词 |
+|------|------|-----------|---------|-------|
+| **skill-for-skills** | v1.0.0 | ✅ 根据自然语言描述自动生成符合规范的 SKILL.md（完全可用，持续优化中） | 内联 | 编写skill / 创建skill / 升级skill |
+| **project-to-skill** | v2.1.0 | 🚧 分析代码库，6 维度评估后提取架构并生成 Skill（测试中，可用） | `context: fork` | 项目转skill / codebase to skill |
+| **skill-chain-planner** | v1.3.0 | ⚠️ 5W1H+C 框架将复杂任务拆分为多 Skill 链（与 executor 协作问题初步解决） | `context: fork` + `agent: Plan` | 任务分解 / skill链规划 |
+| **skill-chain-executor** | v1.0.0 | ⚠️ 读取 planner 规划，委托 skill-for-skills 逐个创建（与 planner 协作问题初步解决） | 内联 | 执行skill链 / 批量创建skill |
+| **prompt-optimizer** | v3.0.0 | ✅ 12 维度定量评分 + 14 种反模式检测 + 回归验证的工业级提示词优化 | 内联 | 优化提示词 / prompt engineering |
 
 ---
 
@@ -97,7 +102,7 @@ prompt-optimizer  ✅ 独立工具，12 维定量分析 + 14 种反模式检测�
 代码库转 Skill（🚧 测试中，暂不可用）：
   代码库 ──→ project-to-skill ──→ SKILL.md + README.md
 
-复杂多 Skill 任务（⚠️ planner 与 executor 协作问题未解决）：
+复杂多 Skill 任务（⚠️ 性能一般）：
   chain-planner ──→ chain-executor ──→ skill-for-skills（× N）
 ```
 
@@ -117,21 +122,25 @@ prompt-optimizer  ✅ 独立工具，12 维定量分析 + 14 种反模式检测�
 
 ### 精度保障（project-to-skill v2.1.0）
 
-- **过程式忠实保证**：循环边界、重试次数、退避公式、错误恢复路径严格按源码记录，不简化
+- **过程式忠实保证**：循环边界、重试次数、退避公式、错误恢复路径严格按源码记录，不做简化
 - **L1+L2+L3 三层提取**：功能摘要 + 步骤参数 + 异常路径逐层保留
 - **精度交叉验证**：生成后对照源代码执行参数完整性、分支覆盖、幻觉检测三轮验证
+- **参考手册**：附 `step-precision-rules.md`，含动词对照表、名词精度速查、五要素模板
 
 ### 定量闭环（prompt-optimizer v3.0.0）
 
 - **12 维评分**：每维度 0-5 分，含 0/3/5 分锚点示例
-- **14 种反模式**：万能提示词、冲突约束、幽灵输出、提示词注入漏洞等
-- **回归验证**：优化后重新通过 12 维度分析，检测是否引入新问题
+- **14 种反模式检测**：万能提示词、冲突约束、幽灵输出、提示词注入漏洞等
+- **跨维度依赖矩阵**：12 × 12 矩阵标记维度间的直接/间接影响
+- **形式化操作原语**：每种操作含 PRE/POST 条件、反事实推理、回退机制
+- **回归验证闭环**：优化后重新通过 12 维度分析，最多 3 轮迭代修正
 
 ### 三层接口契约（skill-chain-planner v1.3.0）
 
-- 每个子 Skill 必须定义输入/输出/错误契约
-- 隐式耦合检测（文件级、环境级、时序级、语义级）
-- 静默降级识别（内容层面、边界层面、数据类型层面）
+- **输入/输出/错误契约**：每个子 Skill 必须明确定义
+- **隐式耦合检测**：文件级、环境级、时序级、语义级
+- **静默降级识别**：内容层面、边界层面、数据类型层面的隐藏异常
+- **风险登记表**：概率 × 影响评分 + 连锁故障推演 + 回滚路径
 
 ---
 
@@ -139,36 +148,35 @@ prompt-optimizer  ✅ 独立工具，12 维定量分析 + 14 种反模式检测�
 
 ### 安装
 
-将需要的技能目录复制到项目的 `.claude/skills/` (Claude Code) 或 `.reasonix/skills/` (Reasonix Code) 下：
+将需要的技能目录复制到项目的 `.claude/skills/`（Claude Code）或 `.reasonix/skills/`（Reasonix Code）下：
 
 ```bash
-# 以 skill-for-skills 为例
+# 以 skill-for-skills 为例（项目级）
 cp -r skill-for-skills /path/to/your/project/.claude/skills/
 
 # 或安装到用户级（所有项目可用）
 cp -r skill-for-skills ~/.claude/skills/
 ```
 
-重启 Claude Code / Reasonix Code 后即可通过斜杠命令或触发关键词激活。
+重启 AI 编码助手后即可通过斜杠命令或触发关键词激活。
 
 ### 使用示例
 
 ```bash
-# 创建一个新 Skill
+# 创建一个新 Skill（✅ 可用）
 /skill-for-skills 帮我写一个能从 arXiv 搜索论文并生成摘要的 skill
 
-# 从现有代码库生成 Skill
+# 优化提示词（✅ 可用）
+/prompt-optimizer Python代码审查 | 检查这段代码有什么问题
+
+# 从现有代码库生成 Skill（🚧 测试中，暂不可用）
 /project-to-skill ../my-tool
 
-# 拆分复杂任务
-/skill-chain-planner 我需要一个完整的实验报告自动生成流水线：
-  输入 docx/pdf → 转 markdown → 格式化 → 内容总结 → 生成报告
+# 拆分复杂任务（⚠️ 性能较差）
+/skill-chain-planner 我需要一个完整的实验报告自动生成流水线
 
-# 执行规划
+# 执行规划（⚠️ 性能较差）
 /chain-executor skill-chain-planner/plans/lab-report/
-
-# 优化提示词
-/prompt-optimizer Python代码审查 | 检查这段代码有什么问题
 ```
 
 ---
@@ -177,21 +185,24 @@ cp -r skill-for-skills ~/.claude/skills/
 
 ### 当前可用
 
-目前只有两个技能可在生产环境中使用：
-
-- **skill-for-skills** — 完全可用，从自然语言需求生成 Skill 的链路已跑通，后续仍会持续优化
-- **prompt-optimizer** — 完全可用，12 维分析框架和回归验证均正常工作
+| 技能 | 说明 |
+|------|------|
+| **skill-for-skills** | 完全可用，从自然语言需求生成 Skill 的链路已跑通，后续仍会持续优化 |
+| **prompt-optimizer** | 完全可用，12 维分析框架和回归验证均正常工作 |
+| **skill-chain-planner + skill-chain-executor** | 两者协作机制问题初步解决：已经匹配数据交换格式，但是链式创建性能一般 |
 
 ### 暂不可用
 
-- **project-to-skill** — 仍在测试阶段，代码库逆向分析到 Skill 生成的链路尚未稳定，**实际不可用**
-- **skill-chain-planner + skill-chain-executor** — 两者的协作机制存在已知问题：planner 输出的规划格式与 executor 期望的输入格式之间存在不匹配，链式批量创建尚不能端到端运行
+| 技能 | 原因 |
+|------|------|
+| **project-to-skill** | 仍在测试阶段，代码库逆向分析到 Skill 生成的链路尚未稳定 |
+
 
 ### 长期待补全
 
 - **自动化测试**：缺少 Skill 的运行时验证工具（输入 → 执行 → 输出 → 校验）
 - **分发与注册管理**：目前需手动复制目录到 `.claude/skills/`
-- **运行监控**：无 Skill 使用频率、成功率、失败原因统计
+- **运行监控**：无使用频率、成功率、失败原因统计
 - **持续维护**：无外部 API 变更检测、依赖版本过期提醒
 - **冲突检测**：无 Skill 间的功能去重与合并分析
 
@@ -217,7 +228,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ```
 
-完整的许可证文本见仓库根目录下的 [LICENSE](./LICENSE) 文件。
+完整的许可证文本见 [LICENSE](./LICENSE)。
 
 ---
 
@@ -239,16 +250,16 @@ limitations under the License.
 
 6. **贡献者免责。** "Reasonix Code Skills Contributors" 包括所有向本仓库提交代码、文档或其他内容的个人或实体。贡献者不因其贡献而承担超出 Apache 2.0 许可证条款的额外责任。
 
+---
 
-# 写在最后
-  我希望这个skill能方便大家的开发，能够真正的帮助大家（虽然这么写有点自大吧）。但是我真的希望能够做一点什么事情，能够真正的帮助开发，能够降低AI对于所有人的门槛，以至于一句话就能实现大家的想法。  现在看来这个仓库的内容还远远没有实现这样的目标，实际上在短期内也不可能实现，但我还是想试试。
-
-  说来可笑，在做这个项目之前我并没有联网去搜索是否存在相同的项目，我只是有了个点子，然后开始做了。做完了才发现原来我们已经有了很多想法和工具，才发现说原来发展这么快，就像我的HTML-PPT项目也是，做完了才发现远在三个月之前就已经有成品，并且已经被广泛应用了😂。
-
-  也有点沮丧吧，毕竟自己觉得有意思的点子早就被大家实现了。但想了想还是把我探索的成果给发出来了，尽管已经有了那么多实用的、高效的项目，我还是想试试，把自己的项目放出来，看看大家会如何评判，能否说给我们的工作带来一点点的启发。
-
-  说来惭愧，我一直都抱有私心，想过既然我们已经有那么多的开源的好用的项目了，我这个也就没必要放出来，自己偷偷用就行了。我承认我在这方面的自私（也算是傲慢吧，觉得这个的价值如何如何），但最后我还是把它放了出来。就是觉得有些事可以是这样，但不一定得是这样。我也希望能成为一个高尚的人吧，希望能对我们的事业做出一点点小小的贡献。
-
-  我们应该为自己的工作寻求一个出路，不是为了钱，而是为了我们的理想和未来，不是么？
-
-  （最后提一嘴，整个README除了“写在最后”部分都是AI生成的，我比较懒，请大家原谅我）
+> 写在最后：我希望这个项目能方便大家的开发，能够真正的帮助大家（虽然这么写有点自大吧）。但是我真的希望能够做一点什么事情，能够真正的帮助开发，能够降低AI对于所有人的门槛，以至于一句话就能实现大家的想法。现在看来这个仓库的内容还远远没有实现这样的目标，实际上在短期内也不可能实现，但我还是想试试。
+>
+> 说来可笑，在做这个项目之前我并没有联网去搜索是否存在相同的项目，我只是有了个点子，然后开始做了。做完了才发现原来我们已经有了很多想法和工具，才发现说原来发展这么快，就像我的HTML-PPT项目也是，做完了才发现远在三个月之前就已经有成品，并且已经被广泛应用了😂。
+>
+> 也有点沮丧吧，毕竟自己觉得有意思的点子早就被大家实现了。但想了想还是把我探索的成果给发出来了，尽管已经有了那么多实用的、高效的项目，我还是想试试，把自己的项目放出来，看看大家会如何评判，能否给我们的工作带来一点点的启发。
+>
+> 说来惭愧，我一直都抱有私心，想过既然我们已经有那么多的开源的好用的项目了，我这个也就没必要放出来，自己偷偷用就行了。我承认我在这方面的自私（也算是傲慢吧，觉得这个的价值如何如何），但最后我还是把它放了出来。就是觉得有些事可以是这样，但不一定得是这样。我也希望能成为一个高尚的人吧，希望能对我们的事业做出一点点小小的贡献。
+>
+> 我们应该为自己的工作寻求一个出路，不是为了钱，而是为了我们的理想和未来，不是么？
+>
+> （最后提一嘴，整个README除了"写在最后"部分都是AI生成的，我比较懒，请大家原谅我）
