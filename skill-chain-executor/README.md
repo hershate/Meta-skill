@@ -3,6 +3,8 @@
 ## 简介
 自动执行 `skill-chain-planner` 生成的 Skill 链规划。读取规划目录，按优先级和依赖顺序，逐一递归调用 `skill-for-skills` 为每个子 Skill 生成 SKILL.md 和 README.md。本 Skill 不自已创建任何文件——所有生成工作委托给 `skill-for-skills`。
 
+**v2.0 能力**：解析两层执行模型、可靠性设计、降级矩阵、执行状态机；创建过程维护状态机（会话内可续接，崩溃需重跑）、预算守卫、降级处理，并对生成的 Skill 做可靠性一致性验证。向后兼容 v1.x 规划。
+
 ## 目录结构
 ```
 skill-chain-executor/
@@ -38,6 +40,8 @@ skill-chain-executor/
 4. 对每个需新建的子 Skill，将规格文件内容传递给 `skill-for-skills`，由后者生成 SKILL.md
 5. 逐个验证创建结果，失败时暂停并询问用户
 6. 输出完整执行报告
+
+**v2.0 增量**：Step 2 解析执行模型/预算/trace_id 与 3 个可选文件；Step 3.5 构建创建状态机与预算计划；Step 5.4a 失败时查询降级矩阵 + 预算守卫；Step 5.6 对 LLM 驱动 Skill 做可靠性一致性验证；Step 7 汇总可靠性警告并终结状态机；Step 8 报告含状态/预算/降级/可靠性。
 
 ## 前置依赖
 
@@ -81,6 +85,9 @@ skill-chain-executor
 │   ├── skill-P0-<name>.md
 │   ├── skill-P1-<name>.md
 │   └── ...
+├── reliability-design.md       # [可选] v2.0 可靠性三支柱+预算估算
+├── degradation-matrix.md       # [可选] v2.0 分层降级矩阵
+├── execution-state-machine.md  # [可选] v2.0 执行状态机+崩溃恢复
 ├── usage-guide.md            # [可选]
 ├── risk-register.md          # [可选]
 └── implementation-roadmap.md # [可选]
@@ -91,3 +98,5 @@ skill-chain-executor
 - 创建完成后，仍需手动将新 Skill 目录复制到 `.claude/skills/` 完成注册
 - 创建失败时流程会暂停，等待用户指示
 - 已有 Skill 如果缺少 README.md 会记录警告但不中断流程
+- **v2.0 向后兼容**：`reliability-design.md` / `degradation-matrix.md` / `execution-state-machine.md` 为可选；存在时据此做可靠性验证、降级处理、状态机续接，缺失时降级标注，可执行 v1.x 规划
+- **v2.0 降级 ≠ 生成**：降级处理仅跳过失败 Skill 并标注其降级默认行为，Executor 仍不自生成 SKILL.md
