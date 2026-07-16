@@ -1,6 +1,6 @@
 # Skill-for-Skills — 自动生成与维护 Claude Code Skill 的元技能
 
-skill-for-skills 是一个 **元技能（Meta-Skill）**，即"用于生成技能的技能"。它能够根据用户自然语言描述，自动创建完整的、符合官方规范的 Claude Code Skill（`.claude/skills/<name>/SKILL.md`），并能升级已有 Skill、甚至通过搜索官方文档更新自身的编写标准（`sum.md`）。
+skill-for-skills 是一个 **元技能（Meta-Skill）**，即"用于生成技能的技能"。它能够根据用户自然语言描述，自动创建完整的、符合官方规范的 Claude Code Skill（`.claude/skills/<name>/SKILL.md`），并能升级已有 Skill、甚至通过搜索官方文档更新自身的编写标准（`sum.md`）。 v1.1 起原生支持四层规格的**可靠性与运行时层**编码（识别 `llm_role`/`cache`/`repair`/`budget`/`capacity`/`security`/`trace_id` 并编码进 SKILL.md）。
 
 ---
 
@@ -10,6 +10,7 @@ skill-for-skills 是一个 **元技能（Meta-Skill）**，即"用于生成技�
 skill-for-skills/           # 元技能根目录
 ├── SKILL.md                # [核心] 元技能的指令文件（Claude 加载后激活本技能）
 ├── sum.md                  # [参考] Skill 编写规范总览（SKILL.md 引用该标准进行生成）
+├── references/            # [参考] 补充文档（reliability-layer.md 等，v1.1 起）
 └── README.md               # 本文件
 
 # 由本技能生成的目标 Skill 示例（位于项目根目录）：
