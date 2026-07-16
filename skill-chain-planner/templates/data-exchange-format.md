@@ -1,7 +1,7 @@
 # Skill Chain 数据交换格式规范
 
 > **角色**: 本文件定义了 `skill-chain-planner`（输出方）与 `skill-chain-executor`（消费方）之间的**显式数据契约**。
-> **版本**: 1.0.0 — 与 planner v1.3.0 / executor v1.0.0 对齐
+> **版本**: 2.0.0 — 与 planner v2.0.0 / executor v2.0.0 对齐（v2.0 新增：执行模型分层、可靠性三支柱、降级矩阵、执行状态机、安全审查、容量配额；新增 3 个可选输出文件）
 > **维护规则**: 修改 planner 或 executor 中任一方的输出/解析逻辑后，必须同步更新本文件。
 
 ---
@@ -18,11 +18,14 @@ skill-chain-planner                  skill-chain-executor
 │  ┌──────────────────────────────────────────────────┐   │
 │  │ chain-overview.md    [必需] — 依赖矩阵 + 流转表    │   │
 │  │ risk-register.md     [可选] — 结构化风险登记表     │   │
-│  │ skills/              [必需] — 子 Skill 三层规格    │   │
+│  │ skills/              [必需] — 子 Skill 四层规格    │   │
 │  │   skill-P{0|1|2}-{name}.md                       │   │
 │  │ usage-guide.md       [可选] — 创建/组合/验证指南   │   │
 │  │ implementation-roadmap.md [可选] — 分阶段实施路线  │   │
 │  │ rollback-guide.md    [可选] — 故障恢复指南         │   │
+│  │ reliability-design.md  [可选] - 可靠性+预算估算     │   │
+│  │ degradation-matrix.md  [可选] - 降级矩阵            │   │
+│  │ execution-state-machine.md [可选] - 状态机+恢复     │   │
 │  └──────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -69,10 +72,19 @@ skill-chain-planner                  skill-chain-executor
 | **RiskSeverity** | `critical` / `high` / `medium` / `low` | 风险综合评分 |
 | **RiskProbability** | `high` / `medium` / `low` | 风险发生概率 |
 | **RiskImpact** | `severe` / `moderate` / `minor` | 风险影响程度 |
-| **RiskCategory** | `dependency` / `data` / `format` / `cascade` / `resource` / `external` / `silent` | 风险类别 |
+| **RiskCategory** | `dependency` / `data` / `format` / `cascade` / `resource` / `external` / `silent` / `security` / `logic` | 风险类别（v2.0 新增 security/logic） |
 | **Stability** | `stable` / `candidate` / `experimental` | 接口稳定性 |
 | **DataSource** | `upstream` / `user` / `filesystem` | 输入数据来源 |
 | **MilestoneStatus** | `not_started` / `in_progress` / `completed` | 里程碑状态 |
+| **LlmRole** | `llm` / `pure_python` / `llm_no_skill` | Skill 驱动方式（v2.0，双轨分类）。注：`llm_no_skill` 仅作架构标注，不生成规格文件 |
+| **ExecutionModel** | `two-layer` / `single-layer` / `free-agent` | 执行模型分层（v2.0） |
+| **CacheStrategy** | `stable_prefix` / `none` | 缓存优先策略（v2.0） |
+| **RepairStatus** | `ok` / `repaired` / `error` | 工具调用修复状态（v2.0） |
+| **BudgetAction** | `abort` / `degrade` / `continue` | 预算超限行为（v2.0） |
+| **OrchestratorState** | `idle` / `running` / `paused_clarify` / `done` / `error` / `interrupted` | 执行状态机（v2.0） |
+| **DegradationPerception** | `无感` / `标注` / `标红` / `中断` | 降级用户感知（v2.0） |
+| **OverLimitAction** | `截断+标注` / `拒绝` / `分批` | 容量超限行为（v2.0） |
+| **SecurityControl** | `untrusted_input` / `ssrf` / `path_traversal` / `xss` / `credential` / `none` | 安全审查项（v2.0） |
 
 ### 2.3 复合类型
 
@@ -92,10 +104,14 @@ skill-chain-planner                  skill-chain-executor
 
 ```markdown
 ---
-schema_version: "1.0"
+schema_version: "2.0"
 generated_at: "YYYY-MM-DD HH:MM:SS"
 chain_name: "<task-name>"                          # [text] kebab-case, 与 $PLAN_DIR 目录名一致
 total_skills: <N>                                  # [int] 链中 Skill 总数
+execution_model: "two-layer"                        # [enum(ExecutionModel)] v2.0 - 外层编排器+内层工具调用循环
+llm_skill_count: <N>                                # [int] v2.0 - LLM 驱动 Skill 数（影响预算）
+budget_estimate_usd: <float>                        # [float] v2.0 - 单次全链预估成本
+trace_id_strategy: "per-chain"                      # [text] v2.0 - trace_id 生成策略
 extensions: {}                                     # [object] 自定义扩展字段
 ---
 
@@ -110,6 +126,13 @@ extensions: {}                                     # [object] 自定义扩展字
 - **主模式**: [enum(ArchMode)] — 如 `pipeline`
 - **备选模式**: [enum(ArchMode)] (optional) — 主模式不可用时的回退
 - **选择理由**: [text] — 为什么选择该架构模式
+
+## 2.5 执行模型分层（v2.0）
+- **外层编排器**: [enum(deterministic|free_agent)] - 默认 deterministic，按固定顺序调度 pipeline
+- **内层工具调用循环**: 每个 LLM 驱动 Skill 的 call → validate → repair(≤3) → return 循环
+- **双轨分类汇总**: [list<ref(skill-name):LlmRole>] - 各 Skill 的驱动方式（llm / pure_python / llm_no_skill）
+- **反馈循环**: [bool] - 是否含校验型 Skill 触发上游重跑（最大重生成轮次 [int, default=2]）
+- **局部重生成**: [bool] - 是否支持从受影响 Skill 起级联重跑
 
 ## 3. 执行顺序
 - **类型**: [enum(ExecType)] — `serial` / `parallel` / `hybrid` / `conditional`
@@ -144,6 +167,7 @@ extensions: {}                                     # [object] 自定义扩展字
 > - `状态` 为 `需新建` → Executor 标记为 `ACTION_CREATE`
 > - `状态` 为 `已有` → Executor 标记为 `ACTION_VERIFY`
 > - `状态` 为 `需升级` → Executor 标记为 `ACTION_UPGRADE`
+> - 本矩阵仅列**可创建的 Skill**（`llm` / `pure_python`）；`llm_no_skill` 节点为内联运行时工具，不生成规格文件，不列入本矩阵，仅在 §2.5 双轨分类与 §5 数据流转表中标注
 
 ## 5. 数据流转表
 
@@ -167,6 +191,9 @@ extensions: {}                                     # [object] 自定义扩展字
 - **幂等性**: [enum(Idempotency)] — `full`(天然幂等) / `conditional`(部分操作需注意) / `none`(每次执行不同)
 - **可观测性**: [enum(Observability)] — `full`(每步可追踪) / `partial`(关键步骤可追踪) / `manual`(需手动检查)
 - **恢复策略**: [enum(RecoveryStrategy)] — `restart`(从头重试) / `skip`(跳过失败步骤) / `fallback`(降级执行) / `compensate`(补偿操作)
+- **trace_id 传播**: [bool] v2.0 - 是否贯穿所有 Skill 日志/产物/错误
+- **预算守卫**: [object] v2.0 - { budget_limit_usd: [float], over_limit_action: [enum(BudgetAction)] }
+- **降级矩阵覆盖**: [bool] v2.0 - 是否产出 degradation-matrix.md 覆盖全部 Skill
 - **备注**: [text] (optional) — 补充说明
 
 ## 8. 扩展字段
@@ -192,11 +219,12 @@ skills/skill-P{0|1|2}-{skill-name}.md
 - `{skill-name}` — kebab-case，与依赖关系矩阵中的 Skill 列一致
 - 示例: `skills/skill-P0-doc-converter.md`
 
-### 4.2 三层规格模板
+### 4.2 四层规格模板
 
 ```markdown
 ---
 spec_schema: "2.0"
+llm_role: "<llm|pure_python|llm_no_skill>"        # [enum(LlmRole)] v2.0 - 驱动方式
 skill_name: "<skill-name>"                          # [text] kebab-case
 priority: "<P0|P1|P2>"                              # [enum(Priority)]
 node_type: "<转换|分析|生成|操作>"                    # [enum(NodeType)]
@@ -216,7 +244,8 @@ extensions: {}                                      # [object] (optional)
 > 提供给 `skill-for-skills` 的元数据，用于生成 frontmatter。
 
 - **name**: [text] — 与文件名中的 skill-name 一致
-- **触发关键词**: [list<text>] — 至少 3 个，用于填充 `description` 和触发自动加载
+- **core_function**: [text] - 一句话核心功能，作为 SKILL.md `description` 的主体（v2.0 显式定义；executor 据此映射 description）
+- **触发关键词**: [list<text>] — 至少 3 个，嵌入 `description` 末尾用于触发自动加载（description 主体来自 core_function）
   - 示例: `"转换文档"`, `"doc to md"`, `"文档格式转换"`
 - **分类标签**: [list<text>] — 如 `["文档处理", "格式转换"]`
 - **建议工具集**: [list<text>] — 最小权限原则下的工具列表
@@ -278,6 +307,21 @@ extensions: {}                                      # [object] (optional)
 ### Step N: <动词性短语>
 ...
 
+## 可靠性与运行时层（Reliability Layer, v2.0）
+
+> v2.0 新增。Executor Step 5.6 据此做可靠性一致性验证；`llm_role=pure_python` 时本层可省略（仅保留容量上限与安全控制）。
+
+- **llm_role**: [enum(LlmRole)] - 与 frontmatter 一致
+- **缓存策略**: [enum(CacheStrategy)] - llm 角色必填；稳定前缀 = SKILL.md 指令，标 cache_control
+- **工具调用修复**: [object] - llm 角色必填
+  - 输出 schema: [text] - 校验方式（pydantic / JSON schema）
+  - 修复策略: schema 不符 → 反馈重试 ≤3 → 降级默认 + 告警，status=repaired
+  - 降级默认值: [text] - 修复超限后的默认输出（须与 degradation-matrix.md 一致）
+- **预算估算**: [object] - { per_call_tokens: [int], per_call_cost_usd: [float] }（llm 角色必填）
+- **容量上限**: [list<object>] - [{ item: [text], limit: [int], over_limit: [enum(OverLimitAction)] }]（至少 1 项）
+- **安全控制**: [list<enum(SecurityControl)>] - 涉及的安全审查项（无则填 `[none]`）
+- **trace_id 携带**: [bool] - 输出/错误是否携带 trace_id + 步骤名 + 输入来源
+
 ## 附加约束
 - **Always**: [list<text>] — 必须遵守的规则
 - **Never**: [list<text>] — 禁止的行为
@@ -301,7 +345,7 @@ extensions: {}                                      # [object] (optional)
 
 ```markdown
 ---
-schema_version: "1.0"
+schema_version: "2.0"
 generated_at: "YYYY-MM-DD HH:MM:SS"
 chain_name: "<task-name>"
 total_risks: <N>                                  # [int]
@@ -338,7 +382,7 @@ extensions: {}                                     # [object]
 
 ```markdown
 ---
-schema_version: "1.0"
+schema_version: "2.0"
 generated_at: "YYYY-MM-DD HH:MM:SS"
 chain_name: "<task-name>"
 extensions: {}
@@ -350,6 +394,7 @@ extensions: {}
 - [text] — 环境要求
 - [text] — 需安装的依赖
 - [text] — 需预先创建的目录或配置
+- [text] (v2.0) 阅读 `reliability-design.md`（预算/缓存/修复配置）与 `execution-state-machine.md`（状态机）
 
 ## 2. 创建各子 Skill
 
@@ -379,6 +424,7 @@ extensions: {}
 
 - [text] — 如何验证单个 Skill 是否正常工作
 - [text] — 如何验证链的整体输出是否正确
+- [text] (v2.0) 按 `reliability-design.md` 验证缓存前缀/工具调用修复/预算守卫；按 `degradation-matrix.md` 测试各 Skill 降级路径
 
 ## 5. 故障排除
 
@@ -393,7 +439,7 @@ extensions: {}
 
 ```markdown
 ---
-schema_version: "1.0"
+schema_version: "2.0"
 generated_at: "YYYY-MM-DD HH:MM:SS"
 chain_name: "<task-name>"
 extensions: {}
@@ -435,7 +481,7 @@ extensions: {}
 
 ```markdown
 ---
-schema_version: "1.0"
+schema_version: "2.0"
 generated_at: "YYYY-MM-DD HH:MM:SS"
 chain_name: "<task-name>"
 extensions: {}
@@ -452,6 +498,7 @@ extensions: {}
   3. [text] — 验证操作
 - **是否需要重建下游**: [bool] — 失败 Skill 的下游是否需要重新创建
 - **数据完整性**: [text] — 已产生的中间数据如何处理
+- **降级参考** (v2.0): 查 `degradation-matrix.md` 取该 Skill 的降级默认输出，决定跳过/简化/中止
 
 ## 场景 2: 链执行中途失败
 
@@ -460,7 +507,8 @@ extensions: {}
   1. [text]
   2. [text]
 - **是否保留上游输出**: [bool]
-- **断点续传**: [bool] — 是否支持从失败步骤继续执行
+- **断点续传**: [bool] — 是否支持从失败步骤继续执行（v2.0 参考 `execution-state-machine.md` 的 resume/rerun）
+- **降级参考** (v2.0): 查 `degradation-matrix.md` 决定是否降级跳过当前步骤
 
 ## 场景 3: 接口契约不匹配
 
@@ -473,11 +521,129 @@ extensions: {}
 
 ---
 
-## 九、Executor 解析规则参考
+## 九、reliability-design.md 模板（[可选]）
+
+> v2.0 新增。Executor Step 5.6 据此验证生成的 SKILL.md 是否编码了缓存前缀 / 修复链 / 预算。由 Planner Step 5.7 产出。
+
+```markdown
+---
+schema_version: "2.0"
+generated_at: "YYYY-MM-DD HH:MM:SS"
+chain_name: "<task-name>"
+extensions: {}
+---
+
+# <任务名称> - 可靠性设计
+
+## 缓存前缀表（支柱 1）
+| Skill | 稳定前缀（system） | cache_control | 缓存收益场景 |
+|-------|------------------|---------------|------------|
+| [ref(skill-name)] | [text] | [bool] | [text] |
+
+## 工具调用修复链（支柱 2）
+| Skill | 输出 schema | 修复策略 | 降级默认值 |
+|-------|------------|---------|-----------|
+| [ref(skill-name)] | [text] | 重试≤3 → 降级 | [text] |
+
+## 成本计量与预算守卫（支柱 3）
+- **计量维度**: input/output/cache_read/cache_write tokens + cost
+- **会话预算上限**: [float]
+- **超限行为**: [enum(BudgetAction)]
+- **超限告知**: [text]
+
+## 预算估算
+- **LLM 驱动 Skill 数**: [int]
+- **单次预估 tokens**: [int]
+- **会话预估成本**: [float]
+- **是否超预算**: [bool]
+```
+
+---
+
+## 十、degradation-matrix.md 模板（[可选]）
+
+> v2.0 新增。Executor Step 5.4 创建失败时据此决定降级。由 Planner Step 5.8 产出。
+
+```markdown
+---
+schema_version: "2.0"
+generated_at: "YYYY-MM-DD HH:MM:SS"
+chain_name: "<task-name>"
+extensions: {}
+---
+
+# <任务名称> - 降级矩阵
+
+## 降级矩阵
+| Skill | 失败场景 | 降级默认输出 | 用户感知 |
+|-------|---------|------------|---------|
+| [ref(skill-name)] | [text] | [text] | [enum(DegradationPerception)] |
+
+## 降级原则
+- 非致命失败 → 跳过 + 标注
+- 致命失败 → 中断 + 保留部分
+- 降级默认值须无 LLM / 无上游可产出
+- 禁止静默降级
+
+## 与反馈循环的关系
+- 降级矩阵 = 单 Skill 失败兜底
+- 反馈循环 = 校验型 Skill 触发上游重跑
+- 先反馈循环，再降级矩阵
+```
+
+---
+
+## 十一、execution-state-machine.md 模板（[可选]）
+
+> v2.0 新增。Executor 据此维护创建状态机并支持崩溃续接。由 Planner Step 5.11 产出。
+
+```markdown
+---
+schema_version: "2.0"
+generated_at: "YYYY-MM-DD HH:MM:SS"
+chain_name: "<task-name>"
+extensions: {}
+---
+
+# <任务名称> - 执行状态机
+
+## 状态定义
+- **状态集合**: [enum(OrchestratorState)]
+- **持久化**: [bool]
+
+## 状态转移
+idle → running → (paused_clarify → running)* → done | error
+running → interrupted → running(续接) | rerun(幂等)
+
+## 崩溃恢复
+- **恢复选项**: [enum(resume|rerun)]
+- **partial 保留**: [bool]
+
+## 澄清续接
+- **触发**: needs_clarify=true
+- **超时**: [int, default=30min]
+
+## 并发隔离
+- 同会话 running 时新请求 → 409
+- running 会话冲突操作 → 先 cancel 或 409
+
+## 状态损坏防护
+- schema 校验失败 → 标 interrupted 不 crash
+
+## 创建期映射（供 skill-chain-executor）
+- 运行时 idle/running/paused_clarify/done/error/interrupted 映射到创建期 idle/creating/paused_confirm/done/error/interrupted
+- paused_clarify（运行时任务澄清）≠ paused_confirm（创建期失败等用户选重试/跳过/终止），语义不同
+- 崩溃恢复在创建期降级：Executor 无持久化层，仅会话内续接；崩溃需重跑（幂等保护：已创建 Skill 被 Step 4 识别为已有）
+- partial 保留在创建期 = 已创建 Skill 列表（内存）；budget_used = skill-for-skills 调用计数
+```
+
+---
+
+## 十二、Executor 解析规则参考
 
 > 以下规则供 Executor 实现者和维护者参考。Planner 输出的文件应遵守此处定义的容错预期。
 
-### 9.1 文件存在性检查
+### 12.1 文件存在性检查
 
 | 文件 | 必需性 | 缺失时的行为 |
 |------|--------|------------|
@@ -488,8 +654,11 @@ extensions: {}
 | `usage-guide.md` | 可选 | ⚠️ 最终报告中标注 "未提供使用指南" |
 | `implementation-roadmap.md` | 可选 | ⚠️ 继续执行，不影响 |
 | `rollback-guide.md` | 可选 | ⚠️ 继续执行，不影响 |
+| `reliability-design.md` | 可选 | ⚠️ v2.0 标注"未提供可靠性设计"，跳过可靠性验证 |
+| `degradation-matrix.md` | 可选 | ⚠️ v2.0 标注"未提供降级矩阵"，失败时用默认降级 |
+| `execution-state-machine.md` | 可选 | ⚠️ v2.0 标注"未提供状态机"，用默认创建状态机 |
 
-### 9.2 依赖关系矩阵解析规则
+### 12.2 依赖关系矩阵解析规则
 
 - Executor 按**列名**定位字段，不依赖列顺序
 - 必需列: `Skill`、`优先级`、`上游依赖`、`状态`
@@ -499,21 +668,33 @@ extensions: {}
 - `状态` = `需升级` → `ACTION_UPGRADE`
 - 如果 `状态` 列缺失 → Executor 回退检查文件系统（`ls <skill-name>/SKILL.md`）
 
-### 9.3 排序规则
+### 12.3 排序规则
 
 1. 先按优先级排序: P0 → P1 → P2
 2. 同一优先级内按拓扑序: 无上游依赖的排前面
 3. 同一优先级且无依赖关系时按数据流转表 Step 编号
 
-### 9.4 skill-for-skills 传递规则
+### 12.4 skill-for-skills 传递规则
 
 - Executor 读取 `skills/skill-P{priority}-{name}.md` 的**完整原始内容**
 - **不做任何修改、截断、重新格式化**
 - 将该内容作为参数传递给 `skill-for-skills`
 
+### 12.5 v2.0 字段解析规则（向后兼容）
+
+- `chain-overview.md` 的 `execution_model` / `llm_skill_count` / `budget_estimate_usd` / `trace_id_strategy` 为可选字段，缺失时用默认值（execution_model=`single-layer`，llm_skill_count=0，budget=∞，trace_id=不传播）
+- skills 规格的 `llm_role` 为可选，缺失时按 `llm` 处理（保守假设调 LLM）
+- 可靠性与运行时层整体可选；缺失时跳过 Step 5.6 可靠性验证
+
+### 12.6 新输出文件消费规则
+
+- `reliability-design.md` → Executor Step 5.6 据此验证生成的 SKILL.md 是否编码了缓存前缀 / 修复链 / 预算
+- `degradation-matrix.md` → Executor Step 5.4 创建失败时据此决定降级（跳过 / 简化 / 中止）
+- `execution-state-machine.md` → Executor 据此维护创建状态机（idle / creating / paused_confirm / done / error / interrupted），支持崩溃后续接
+
 ---
 
-## 十、版本演进公约
+## 十三、版本演进公约
 
 1. **向前兼容**: 新增字段使用 `optional` 标记，旧版 Executor 可以忽略
 2. **废弃流程**: 字段不再使用时先标记 `[deprecated]`，一个版本后再移除
@@ -521,3 +702,4 @@ extensions: {}
    - 新增可选字段: 次版本号 (如 `1.0` → `1.1`)
    - 新增必需字段或移除字段: 主版本号 (如 `1.0` → `2.0`)
 4. **同步更新**: Planner 或 Executor 升级后，检查本文件是否需要同步更新
+5. **v2.0 变更摘要**: 新增 `LlmRole`/`ExecutionModel`/`CacheStrategy`/`RepairStatus`/`BudgetAction`/`OrchestratorState`/`DegradationPerception`/`OverLimitAction`/`SecurityControl` 枚举；`RiskCategory` 增 `security`/`logic`；chain-overview 增执行模型/预算/trace_id 字段；skills 规格增 `llm_role` 与可靠性与运行时层；新增 Section 九/十/十一 三个可选输出文件。所有新增字段/文件均为可选，v1.x Executor 可忽略（向后兼容）。v2.0 将所有输出文件的 schema_version 统一为 "2.0"。
