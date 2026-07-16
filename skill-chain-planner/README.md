@@ -18,6 +18,9 @@ skill-chain-planner/
 │       │   ├── skill-P0-<name>.md
 │       │   ├── skill-P1-<name>.md
 │       │   └── ...
+│       ├── reliability-design.md       # 可靠性三支柱+预算估算 [可选]
+│       ├── degradation-matrix.md       # 分层降级矩阵 [可选]
+│       ├── execution-state-machine.md  # 执行状态机+崩溃恢复 [可选]
 │       ├── usage-guide.md            # 创建与组合使用指南
 │       ├── implementation-roadmap.md # 实施路线图
 │       └── rollback-guide.md         # 回滚指南
@@ -56,6 +59,8 @@ skill-chain-planner/
 
 每个主步骤后紧跟推理验证层，形成"执行 → 验证 → 推断"的双层结构。
 
+**v2.0 新增维度**：在架构设计阶段追加两层执行模型（4.9）/ 反馈循环（4.10）/ 局部重生成（4.11）；在风险评估阶段追加可靠性三支柱（5.7）/ 降级矩阵（5.8）/ 容量配额（5.9）/ 安全审查（5.10）/ 执行状态机（5.11）；完备性检查追加可靠性验证轮（6.7d）。产出新增 3 个可选文件：`reliability-design.md`、`degradation-matrix.md`、`execution-state-machine.md`。
+
 ## 技术细节
 
 ### 运行模式
@@ -71,22 +76,27 @@ skill-chain-planner/
 - `WebSearch` — 在必要时核实外部工具/API 信息（可选）
 
 ### 模板体系（spec v2.0）
-所有输出文件采用统一的**三层模板架构**：
+所有输出文件采用统一的**四层模板架构**：
 - **身份层** — Skill 名称、触发词、分类（给 `skill-for-skills` 的元数据）
 - **接口层** — 类型化输入/输出契约（含 `source`, `format`, `validation`, `verification` 等类型化字段）
 - **实现层** — Workflow 步骤、工具集、依赖、优先级（给 `skill-for-skills` 的指令）
+
+- **可靠性与运行时层**（v2.0）- llm_role、缓存策略、工具调用修复、预算估算、容量上限、安全控制、trace_id 携带
 
 **扩展机制**：每个模板预留 `extensions` 字段，用于项目特定信息或未来字段扩展，`skill-for-skills` 会忽略不识别的扩展字段。
 
 ### 输出文件
 所有文件含 YAML 元数据头（`schema_version`, `generated_at`, `extensions` 等），正文使用类型化字段标记 `[type] (required|optional)`。
 
-- `chain-overview.md` — 链架构总览，含依赖矩阵、数据流转表、质量属性
+- `chain-overview.md` — 链架构总览，含依赖矩阵、数据流转表、质量属性、执行模型分层、预算/trace_id（v2.0）
 - `risk-register.md` — 结构化风险登记表，含风险评分、连锁分析、人工干预标记
-- `skills/` 目录 — 每个子 Skill 的三层规格文件（`skill-P0-{name}.md` / `skill-P1-{name}.md`）
+- `skills/` 目录 — 每个子 Skill 的四层规格文件（`skill-P0-{name}.md` / `skill-P1-{name}.md`）
 - `usage-guide.md` — 创建/组合/验证/故障排除四部分指南
 - `implementation-roadmap.md` — 三阶段实施路线图（含里程碑和验证标准）
 - `rollback-guide.md` — 三类故障场景的结构化恢复指南
+- `reliability-design.md`（v2.0，可选）- 可靠性三支柱 + 预算估算
+- `degradation-matrix.md`（v2.0，可选）- 分层降级矩阵
+- `execution-state-machine.md`（v2.0，可选）- 执行状态机 + 崩溃恢复 + 澄清续接
 
 ## 完整工作流示例
 
@@ -97,10 +107,10 @@ skill-chain-planner/
 | Step 1 | 系统化任务分析（5W1H+C） | 隐含假设验证 + 可行性预判 | 分析记录 + 假设清单 |
 | Step 2 | 复杂度判定与路径选择 | 5 维评分 → 单 Skill 推荐(≤12分) 或 多 Skill 链分解(≥13分) | 复杂度评分表 + 路径选择 |
 | Step 3 | 定义接口契约 | 隐式状态检测 + 静默降级识别 | 契约文档 + 兼容性标注 |
-| Step 4 | 设计链架构 | 幂等性分析 + 可观测性 + 资源竞争 | 架构图 + 质量属性 |
-| Step 5 | 风险评估 | 静默错误分析 + 连锁故障推演 | 风险登记表 + 故障树 |
+| Step 4 | 设计链架构 | 幂等性 + 可观测性(trace_id) + 资源竞争 + 两层执行模型(4.9) + 反馈循环(4.10) + 局部重生成(4.11) | 架构图 + 质量属性 + 执行模型分层 |
+| Step 5 | 风险评估 | 静默错误 + 连锁故障 + 可靠性三支柱(5.7) + 降级矩阵(5.8) + 容量配额(5.9) + 安全审查(5.10) + 状态机(5.11) | 风险登记表 + 降级矩阵 + 状态机 |
 | Step 6 | 编写创建规格 | 自洽性检查 + 可复用性 + 歧义消除 | 规格文件 + 评估报告 |
-| Step 6.5 | 完备性检查 | 语义检查 + 逻辑检查 + 去重检查 | 验证摘要 + 修正记录 |
+| Step 6.7 | 完备性检查 | 语义 + 逻辑 + 去重 + 可靠性验证(6.7d) | 验证摘要 + 修正记录 |
 | Step 7 | 生成规划报告 | 回滚路径设计 | 完整文件集 + rollback-guide |
 | Step 8 | 输出规划总结 | 假设验证清单 | 全景 + 实施建议 + 验证表 |
 
@@ -141,3 +151,5 @@ PR代码 → 代码审查 → 问题分类 → 文档生成 → 通知发送
 - 本 Skill 采用"执行 → 验证 → 推断"双层结构：每个主步骤后跟推理验证层，确保每一步的产出都经过逻辑检验
 - 报告中的 `rollback-guide.md` 提供了常见失败场景的恢复步骤，建议在实施前阅读
 - 开始实施前，请逐条确认 `假设验证清单`（规划总结的 8.4 节）中的假设是否成立
+- **v2.0 可靠性/安全/状态机维度**：规划已包含两层执行模型、可靠性三支柱、降级矩阵、执行状态机、安全审查；实施时请按 `reliability-design.md` / `degradation-matrix.md` / `execution-state-machine.md` 落地
+- **向后兼容**：3 个新输出文件为可选，旧版 `skill-chain-executor`（v1.x）缺失时降级标注不影响主流程；v2.0 Executor 会解析并据此做可靠性验证与降级处理
