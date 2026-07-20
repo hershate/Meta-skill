@@ -18,8 +18,10 @@
 ```
 .
 ├── skill-for-skills/          # 核心引擎 — 根据需求描述生成/升级 Skill
-│   ├── SKILL.md               # 元技能主文件（CREATE / UPGRADE / UPDATE_SUM 三条路径）
+│   ├── SKILL.md               # 元技能主文件（v1.1.0，CREATE / UPGRADE / UPDATE_SUM 三条路径）
 │   ├── sum.md                 # Skill 编写规范参考手册
+│   ├── references/
+│   │   └── reliability-layer.md  # 可靠性与运行时层编码指南（v1.1 起）
 │   └── README.md
 │
 ├── project-to-skill/          # 逆向分析 — 从代码库提取架构并转化为 Skill
@@ -31,14 +33,15 @@
 │   └── README.md
 │
 ├── skill-chain-planner/       # 任务分解 — 将复杂任务规划为多 Skill 协作链
-│   ├── SKILL.md               # 技能主文件（v1.3.0）
+│   ├── SKILL.md               # 技能主文件（v2.0.0，四层规格 + 可靠性设计）
 │   ├── references/            # 预留
 │   ├── scripts/               # 预留
-│   ├── templates/             # 预留
+│   ├── templates/             # 数据交换格式契约（v2.0.0）
 │   └── README.md
 │
 ├── skill-chain-executor/      # 链执行器 — 按规划批量委托 skill-for-skills 创建子 Skill
-│   ├── SKILL.md               # 技能主文件（v1.0.0）
+│   ├── SKILL.md               # 技能主文件（v2.0.0，状态机 + 预算守卫 + 可靠性验证）
+│   ├── templates/             # 数据交换格式契约（v2.0.0，与 planner 同步）
 │   └── README.md
 │
 ├── prompt-optimizer/          # 提示词优化 — 12 维定量分析 + 14 种反模式检测
@@ -56,11 +59,11 @@
 
 | 技能 | 版本 | 状态 | 说明 |
 |------|------|------|------|
-| **skill-for-skills** | v1.0.0 | ✅ **可用** | 完全可用，后续仍会持续优化 |
+| **skill-for-skills** | v1.1.0 | ✅ **可用** | 完全可用；v1.1 起原生编码四层规格的可靠性与运行时层 |
 | **prompt-optimizer** | v3.0.0 | ✅ **可用** | 完全可用 |
 | **project-to-skill** | v2.1.0 | 🚧 **测试中** | 仍在测试阶段，**实际不可用** |
-| **skill-chain-planner** | v1.3.0 | ⚠️ **已知问题** | 与 skill-chain-executor 的协作问题初步解决可运行，但是仍需测试 |
-| **skill-chain-executor** | v1.0.0 | ⚠️ **已知问题** | 与 skill-chain-planner 的协作问题初步解决可运行，但仍需测试 |
+| **skill-chain-planner** | v2.0.0 | ⚠️ **已知问题** | v2.0 产出四层规格与可靠性设计；与 executor / skill-for-skills 的协同强化，仍需测试 |
+| **skill-chain-executor** | v2.0.0 | ⚠️ **已知问题** | v2.0 消费四层规格，含状态机 / 预算守卫 / 降级 / 可靠性验证；仍需测试 |
 
 ---
 
@@ -68,10 +71,10 @@
 
 | 技能 | 版本 | 一句话描述 | 运行模式 | 触发词 |
 |------|------|-----------|---------|-------|
-| **skill-for-skills** | v1.0.0 | ✅ 根据自然语言描述自动生成符合规范的 SKILL.md（完全可用，持续优化中） | 内联 | 编写skill / 创建skill / 升级skill |
+| **skill-for-skills** | v1.1.0 | ✅ 根据自然语言描述自动生成符合规范的 SKILL.md；v1.1 原生编码可靠性层（完全可用，持续优化中） | 内联 | 编写skill / 创建skill / 升级skill |
 | **project-to-skill** | v2.1.0 | 🚧 分析代码库，6 维度评估后提取架构并生成 Skill（测试中，可用） | `context: fork` | 项目转skill / codebase to skill |
-| **skill-chain-planner** | v1.3.0 | ⚠️ 5W1H+C 框架将复杂任务拆分为多 Skill 链（与 executor 协作问题初步解决） | `context: fork` + `agent: Plan` | 任务分解 / skill链规划 |
-| **skill-chain-executor** | v1.0.0 | ⚠️ 读取 planner 规划，委托 skill-for-skills 逐个创建（与 planner 协作问题初步解决） | 内联 | 执行skill链 / 批量创建skill |
+| **skill-chain-planner** | v2.0.0 | ⚠️ 5W1H+C 框架将复杂任务拆分为多 Skill 链，v2.0 产出四层规格 + 可靠性设计（仍需测试） | `context: fork` + `agent: Plan` | 任务分解 / skill链规划 |
+| **skill-chain-executor** | v2.0.0 | ⚠️ 读取 planner 规划，委托 skill-for-skills 逐个创建；v2.0 状态机 + 预算守卫 + 可靠性验证（仍需测试） | 内联 | 执行skill链 / 批量创建skill |
 | **prompt-optimizer** | v3.0.0 | ✅ 12 维度定量评分 + 14 种反模式检测 + 回归验证的工业级提示词优化 | 内联 | 优化提示词 / prompt engineering |
 
 ---
@@ -135,12 +138,23 @@ prompt-optimizer  ✅ 独立工具，12 维定量分析 + 14 种反模式检测�
 - **形式化操作原语**：每种操作含 PRE/POST 条件、反事实推理、回退机制
 - **回归验证闭环**：优化后重新通过 12 维度分析，最多 3 轮迭代修正
 
-### 三层接口契约（skill-chain-planner v1.3.0）
+### 四层接口契约（skill-chain-planner v2.0.0）
 
-- **输入/输出/错误契约**：每个子 Skill 必须明确定义
-- **隐式耦合检测**：文件级、环境级、时序级、语义级
-- **静默降级识别**：内容层面、边界层面、数据类型层面的隐藏异常
-- **风险登记表**：概率 × 影响评分 + 连锁故障推演 + 回滚路径
+子 Skill 规格从三层升级为四层，planner / skill-for-skills / executor 三方围绕同一份数据交换契约（`templates/data-exchange-format.md` v2.0.0）协同：
+
+- **身份层** — 名称、`core_function`、触发词、分类、建议工具集
+- **接口层** — 类型化输入/输出/错误契约（含 `source` / `format` / `validation` / `verification`）
+- **实现层** — Workflow 步骤、依赖、优先级
+- **可靠性与运行时层（v2.0）** — `llm_role`（llm / pure_python / llm_no_skill）、缓存策略、工具调用修复（schema 校验 + 重试 ≤3 + 降级默认）、预算估算、容量上限、安全控制、trace_id 携带
+
+配套机制：
+
+- **可靠性三支柱**：缓存前缀表 + 工具调用修复链 + 成本计量与预算守卫（`reliability-design.md`）
+- **分层降级矩阵**：失败场景 → 降级默认输出 → 用户感知，禁止静默降级（`degradation-matrix.md`）
+- **执行状态机**：idle → running → done/error/interrupted，含崩溃恢复与创建期映射（`execution-state-machine.md`）
+- **闭环验证**：skill-for-skills 原生编码可靠性层，executor Step 5.6 据 reliability-design 抽查生成结果
+- **向后兼容**：所有新增字段/文件均为可选，v1.x 规划可继续执行
+- **既有能力保留**：隐式耦合检测、静默降级识别、风险登记表（概率 × 影响 + 连锁故障推演 + 回滚路径）
 
 ---
 
@@ -189,7 +203,7 @@ cp -r skill-for-skills ~/.claude/skills/
 |------|------|
 | **skill-for-skills** | 完全可用，从自然语言需求生成 Skill 的链路已跑通，后续仍会持续优化 |
 | **prompt-optimizer** | 完全可用，12 维分析框架和回归验证均正常工作 |
-| **skill-chain-planner + skill-chain-executor** | 两者协作机制问题初步解决：已经匹配数据交换格式，但是链式创建性能一般 |
+| **skill-chain-planner + skill-chain-executor + skill-for-skills** | v2.0 协同强化：统一四层规格契约，planner 产出可靠性设计，skill-for-skills 原生编码可靠性层，executor 消费并做可靠性一致性验证；但链式创建性能一般，仍需测试 |
 
 ### 暂不可用
 
