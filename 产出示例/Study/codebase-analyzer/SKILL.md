@@ -9,8 +9,9 @@ description: >-
   "AI替代方案", "项目复盘", "codebase analysis", "project architecture review",
   "架构分析", "项目review", "arch分析", "运行原理", "AI自动化分析",
   "Skill蓝图", "项目函数级分析", "逐步骤分析".
-version: 2.0.0
-allowed-tools: Read Grep Glob Write Bash WebSearch
+version: 2.1.0
+allowed-tools: Read Grep Glob Write Edit Bash WebSearch
+dependencies: python>=3.8
 metadata:
   tags: analysis, architecture, documentation, ai-workflow
 context: fork
@@ -645,7 +646,7 @@ flowchart TD
 
 每个 Blueprint 是一个独立的 Markdown 文件，保存在 `codebase-analyzer/reports/<project-name>-<TIMESTAMP>/blueprints/` 目录下：
 
-```markdown
+````markdown
 # Skill Blueprint: [组件名]
 
 > 自动生成自 codebase-analyzer
@@ -787,7 +788,7 @@ interface ExampleModel {
 - 测试文件：`<测试路径>`
 - 相关文档：`<文档链接>`
 - 关键代码片段：[可选粘贴关键代码]
-```
+````
 
 **12c. 生成 Blueprint 索引文件：**
 
@@ -882,7 +883,48 @@ codebase-analyzer/reports/
 <3-5 条最重要的建议>
 ```
 
-#### Step 14: 向用户输出分析总结
+#### Step 14: Markdown 语法校验与修复（v2.1 新增）
+
+在所有报告与 Blueprint 文件写入完成后、向用户输出总结（Step 15）之前，对整个报告目录执行确定性语法校验，确保交付的 Markdown 无渲染错误。
+
+**14a. 运行校验脚本：**
+
+```
+Bash python <本 Skill 安装目录>/scripts/validate-markdown.py codebase-analyzer/reports/<project-name>-<TIMESTAMP>/
+```
+
+（`python` 命令不存在时改用 `python3`。）脚本为纯 Python 标准库实现、零第三方依赖，递归校验目录下全部 `.md` 文件，按 `文件:行号: [ERROR|WARN] 描述` 输出问题清单，存在 ERROR 时以非零退出码结束。校验项与级别：
+
+| 校验项 | 级别 | 说明 |
+|--------|------|------|
+| 代码围栏配对 | ERROR | 文件结束时围栏未闭合（E1） |
+| 表格列一致性 | ERROR | 数据行/分隔行的单元格数与表头不一致（E2） |
+| Mermaid 语法基检 | ERROR | 引号/括号不配对、subgraph 与 end 不匹配（E3） |
+| 相对链接有效性 | ERROR | 报告间交叉引用的目标文件不存在（E4） |
+| frontmatter 完整性 | ERROR | 以 --- 开头但缺少闭合（E5） |
+| 嵌套围栏未升级 | WARN | 3 反引号的 markdown 围栏内部含围栏线，内层会提前闭合外层（W1） |
+| 误写的闭合围栏 | WARN | 闭合线带附加文字导致无法闭合（W2） |
+| 标题层级跳跃 | WARN | 如一级标题后直接三级标题（W3） |
+| Mermaid 未引号标签 | WARN | 节点标签含圆括号等特殊字符（W4） |
+
+**14b. 修复循环（最多 3 轮）：**
+
+1. 解析脚本输出的问题清单，用 `Edit` 定位到对应文件与行号逐条修复，只改动问题区域，不重写整份报告
+2. 修复后重新运行校验脚本，确认问题消除
+3. 重复执行直至零 ERROR，或达到 3 轮上限
+4. 达到上限仍有 ERROR 时，将剩余问题逐条写入最终总结的「校验遗留问题」小节（文件、行号、问题描述），禁止静默交付
+
+**14c. Python 完全不可用时的降级校验：**
+
+1. 用 `Bash` 统计每个 `.md` 文件的围栏行数（`grep -c '^```' <文件>`），结果为奇数即存在未闭合围栏
+2. 用 `Read` 重读每个文件，核对表格竖线转义与 Mermaid 引号/括号配对
+3. 在最终总结中注明「本次使用降级校验，未运行完整脚本校验」
+
+**14d. WARN 处理：**
+
+逐条评估 WARN：影响渲染的（W1 嵌套围栏、W2 误写闭合线、W4 Mermaid 特殊字符）按 14b 的修复循环处理；纯风格问题（W3 标题跳跃）可保留，但在最终总结中简要说明保留原因。
+
+#### Step 15: 向用户输出分析总结
 
 在子 Agent 完成所有分析并生成报告后，向用户输出以下总结：
 
@@ -928,9 +970,12 @@ codebase-analyzer/reports/
 - **Always** 在运行原理分析阶段（Step 6/7）记录变量级别（variable-level）的数据变换详情，标注每个关键变量的类型变化和边界条件
 - **Always** 在 AI 替代分析阶段（Step 10d/10e）提取每个候选函数的完整接口契约（前置条件、后置条件、错误场景）
 - **Always** 为每个"完全 AI 化"组件生成完整的 Skill Blueprint（Step 12），包含名称、触发词、接口契约、依赖清单、工作流设计和示例
+- **Always** 在向用户输出分析总结（Step 15）之前，对报告目录执行 Step 14 语法校验并完成修复循环：交付的报告必须零 ERROR；3 轮修复后仍存在的 ERROR 逐条列入总结的「校验遗留问题」小节
+- **Always** 在报告中嵌套展示 Markdown 代码块时，将外层围栏升级为 4 个及以上反引号，避免内层围栏提前闭合外层导致渲染错误
 - **Never** 修改或创建分析范围（`ANALYSIS_ROOT`）内的任何源代码文件
 - **Never** 执行 `Bash` 命令运行项目（如 `npm start`、`cargo run`）—— 只做静态分析
 - **Never** 将代码库中的敏感信息（API 密钥、密码、令牌）写入报告文件
+- **Never** 跳过 Step 14 校验直接输出"分析完成"，或静默交付含已知语法 ERROR 的报告
 - Never 分析 `node_modules/`、`.git/`、`vendor/`、`.next/`、`venv/`、`.venv/` 等非项目源码目录
 - 报告输出目录统一为 `codebase-analyzer/reports/<project-name>-<TIMESTAMP>/`
 - Blueprint 文件统一保存在 `codebase-analyzer/reports/<project-name>-<TIMESTAMP>/blueprints/` 子目录下
@@ -957,6 +1002,7 @@ codebase-analyzer/reports/
 7. 对每个模块进行 AI 替代可行性评估（含函数级接口契约提取）
 8. 为每个高 ROI 组件生成 Skill Blueprint
 9. 生成四份报告 + Skill Blueprint 索引
+10. 运行 validate-markdown.py 校验全部产出，修复所有 ERROR 后复检通过
 
 **输出：**
 ```
@@ -1002,9 +1048,25 @@ codebase-analyzer/reports/my-project-2026-05-19_143000/
 - ❌ 错误做法：在分析过程中不小心编辑了 `src/config.ts` 添加注释
 - ✅ 正确做法：只使用 `Read`、`Grep`、`Glob` 进行只读分析，所有输出写到 `codebase-analyzer/reports/`
 
+### ❌ Not This — 交付带渲染错误的报告
+
+**在 Blueprint 中嵌入 Markdown 示例代码块时，外层与内层围栏都使用 3 个反引号：**
+
+````
+```
+```markdown
+### Step 1: 解析输入
+```
+```
+````
+
+- ❌ 错误做法：如上 —— 内层裸 `` ``` `` 会提前闭合外层，Blueprint 后半部分被吞进代码块；文件写完后不做任何校验，直接输出"分析完成"
+- ✅ 正确做法：外层围栏升级为 4 个反引号；Step 14 运行校验脚本，对 `blueprints/01-xxx.md:87: [ERROR] E1 代码围栏未闭合` 这类问题用 Edit 修复并复检，零 ERROR 后才输出总结
+
 ## Notes
 
 - **报告输出位置**：所有报告默认输出到项目根目录下的 `codebase-analyzer/reports/<project-name>-<TIMESTAMP>/`
+- **语法校验（v2.1）**：Step 14 使用本 Skill 目录下的 `scripts/validate-markdown.py`（纯 Python 标准库、零依赖）对全部产出做确定性校验，覆盖代码围栏、表格列一致性、Mermaid 词法、相对链接与 frontmatter；标题层级等风格问题仅告警。Python 不可用时按 Step 14c 降级为 grep + Read 自检。3 轮修复后仍无法消除的 ERROR 会在总结中如实列出，不会静默交付
 - **大项目处理**：对于超过 2000 个文件的项目，自动启用增强采样策略（每类文件最多读取 10 个代表性样本），并在报告中标注"采样分析"模式
 - **速度说明**：完整分析可能耗时 2-5 分钟（取决于项目规模），子 Agent 模式下用户在此期间可继续其他工作
 - **`context: fork` 与 `agent: general-purpose`**：隔离分析环境确保即使分析了大量文件，主会话上下文也不受影响

@@ -10,7 +10,7 @@
 01-architecture.md
 ```
 
-```markdown
+````markdown
 # <项目名> — 项目架构报告
 
 **分析时间**：<TIMESTAMP>
@@ -146,7 +146,7 @@ graph TD
 | 可测试性 | 4 | 大量使用依赖注入，便于 Mock |
 | 文档一致性 | 2 | 部分模块缺乏接口文档 |
 | 技术债务 | 3 | 少量 TODO 遗留（共 12 处，集中在 `legacy/` 目录） |
-```
+````
 
 ---
 
@@ -156,7 +156,7 @@ graph TD
 02-operation-principles.md
 ```
 
-```markdown
+````markdown
 # <项目名> — 项目运行原理报告
 
 **分析时间**：<TIMESTAMP>
@@ -322,7 +322,7 @@ AppError
 - **异步队列**：<Bull / Celery / 内置队列>
 - **竞态处理**：<锁 / 乐观锁 / 事务隔离级别>
 - **定时任务**：<cron 表达式 + 处理器位置>
-```
+````
 
 ---
 
@@ -332,7 +332,7 @@ AppError
 03-workflow.md
 ```
 
-```markdown
+````markdown
 # <项目名> — 项目工作流分析报告
 
 **分析时间**：<TIMESTAMP>
@@ -457,7 +457,7 @@ flowchart TD
 3. 修复发现的 Bug
 4. 合并到 `main` 并打 Tag
 5. CI 自动部署到生产
-```
+````
 
 ---
 
@@ -467,7 +467,7 @@ flowchart TD
 04-ai-substitution.md
 ```
 
-```markdown
+````markdown
 # <项目名> — AI 工作流替代方案报告
 
 **分析时间**：<TIMESTAMP>
@@ -624,7 +624,7 @@ quadrantChart
 | API 端点 | 4 | 4 | 2 | 3 | 4 | 4 | 21 |
 | 单元测试 | 5 | 4 | 5 | 2 | 3 | 5 | 24 |
 | ... | | | | | | | |
-```
+````
 
 ---
 
@@ -632,7 +632,7 @@ quadrantChart
 
 文件名格式：`blueprints/<编号>-<组件名>.md`
 
-```markdown
+````markdown
 # Skill Blueprint: [组件名]
 
 > 自动生成自 codebase-analyzer
@@ -729,4 +729,4 @@ interface ExampleModel {
 - 源文件：`<路径>`
 - 测试文件：`<测试路径>`
 - 关键代码片段：[可选]
-```
+````
